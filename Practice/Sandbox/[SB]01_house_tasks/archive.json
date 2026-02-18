@@ -1,0 +1,20 @@
+[
+  {
+    "id": 1,
+    "title": "Open window",
+    "responsible": "Marina",
+    "is_closed": false
+  },
+  {
+    "id": 2,
+    "title": "Feed the cat",
+    "responsible": "Sasha",
+    "is_closed": false
+  },
+  {
+    "id": 3,
+    "title": "Write program",
+    "responsible": "Misha",
+    "is_closed": false
+  }
+]

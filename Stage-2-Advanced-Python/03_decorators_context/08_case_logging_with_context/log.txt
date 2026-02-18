@@ -1,0 +1,15 @@
+[LOG] Started: greet
+[LOG] Finished: greet
+[LOG] Started: greet
+[LOG] Finished: greet
+[LOG] Started: greet
+[LOG] Finished: greet
+[LOG] Started: greet
+[LOG] Finished: greet
+[LOG] Started: add
+[LOG] Finished: add
+=== Log session started ===
+=== Program started ===
+=== Program finished ===
+=== Log session ended ===
+

@@ -1,0 +1,2 @@
+Hello from manual file handling!
+Hello from context manager!
