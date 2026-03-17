@@ -1,17 +1,18 @@
 import sys
 from pathlib import Path
-
-BASE_DIR = Path(__file__).resolve().parents[1]
-sys.path.append(str(BASE_DIR))
-
-from models import Base
-
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
 from alembic import context
+
+# Добавляем путь к папке с моделями (папка выше alembic/)
+BASE_DIR = Path(__file__).resolve().parent.parent
+sys.path.append(str(BASE_DIR))
+
+from models import Base
+print("✅ Модели загружены, таблицы:", Base.metadata.tables.keys())
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -24,34 +25,27 @@ if config.config_file_name is not None:
 
 # add your model's MetaData object here
 # for 'autogenerate' support
-# from myapp import mymodel
-# target_metadata = mymodel.Base.metadata
 target_metadata = Base.metadata
 
-# other values from the config, defined by the needs of env.py,
-# can be acquired:
-# my_important_option = config.get_main_option("my_important_option")
-# ... etc.
+
+def include_object(object, name, type_, reflected, compare_to):
+    """Игнорировать таблицы, которых нет в моделях (reviews, comments)"""
+    if type_ == "table" and name in ["reviews", "comments"]:
+        return False
+    return True
 
 
 def run_migrations_offline() -> None:
-    """Run migrations in 'offline' mode.
-
-    This configures the context with just a URL
-    and not an Engine, though an Engine is acceptable
-    here as well.  By skipping the Engine creation
-    we don't even need a DBAPI to be available.
-
-    Calls to context.execute() here emit the given string to the
-    script output.
-
-    """
+    """Run migrations in 'offline' mode."""
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
         url=url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        version_table_schema="core",
+        include_schemas=True,
+        include_object=include_object,
     )
 
     with context.begin_transaction():
@@ -70,8 +64,9 @@ def run_migrations_online() -> None:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
-            version_table_schema="core",  # ← явно указываем схему для служебной таблицы
-            include_schemas=True,          # ← учитываем схемы из моделей
+            version_table_schema="core",
+            include_schemas=True,
+            include_object=include_object,
         )
 
         with context.begin_transaction():
