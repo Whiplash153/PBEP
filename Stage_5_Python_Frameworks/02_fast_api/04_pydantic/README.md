@@ -1,16 +1,18 @@
 # FastAPI Pydantic Models
 
 ## Goal
-Learn how to use Pydantic models for request validation and structured data handling.
+Learn how to use Pydantic models for request validation and data structure control in FastAPI.
 
 ## What was done
-Created a User model using Pydantic BaseModel.  
-Implemented a POST endpoint to receive and validate user data.  
-Implemented a GET endpoint to return a list of users.  
-Tested endpoints using Swagger UI.
+Created data models using Pydantic BaseModel.  
+Implemented POST endpoints with automatic validation.  
+Added optional fields using default values.  
+Extended models with validation rules using Field (length ограничения, числовые ограничения).  
+Tested API behavior and validation using Swagger UI.
 
 ## Notes
-Pydantic models provide automatic validation and type checking.  
-FastAPI converts JSON into Python objects and обратно в JSON автоматически.  
-Missing or invalid fields result in a 422 error.  
-Using models is safer and cleaner than working with raw dictionaries.
+Pydantic converts JSON into Python objects automatically.  
+Fields can be required or optional depending on default values.  
+Validation rules (min_length, gt, ge) are defined using Field.  
+Invalid data returns a 422 error with detailed explanation.  
+Models allow controlling API input without manual checks.
