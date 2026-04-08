@@ -13,3 +13,4 @@ class User(Base):
 
     created_proposals: Mapped[list["Proposal"]] = relationship(back_populates="author")
     votes: Mapped[list["Vote"]] = relationship(back_populates="user")
+    participations: Mapped[list["Participant"]] = relationship(back_populates="user")
