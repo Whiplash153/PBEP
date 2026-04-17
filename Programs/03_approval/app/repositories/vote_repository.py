@@ -16,3 +16,7 @@ class VoteRepo:
         result = self.session.query(Vote).filter(Vote.user_id == user_id,
                                                  Vote.proposal_id == proposal_id).first()
         return result
+
+    def votes_count(self, proposal_id):
+        result = self.session.query(Vote).filter(Vote.proposal_id == proposal_id).count()
+        return result
