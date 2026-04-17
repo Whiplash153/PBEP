@@ -9,6 +9,8 @@ from app.models.participant import Participant
 
 from sqlalchemy.orm import Session
 
+from app.models.enums import ProposalStatus
+
 class ProposalService:
     def __init__(self, session: Session):
         self.session = session
@@ -43,7 +45,7 @@ class ProposalService:
             title=title,
             description=description,
             author_id=author_id,
-            status="draft"
+            status=ProposalStatus.DRAFT.value
         )
 
         #ADD PROPOSAL
@@ -77,11 +79,11 @@ class ProposalService:
             raise ValueError
 
         #STATUS CHECK
-        if proposal.status != "draft":
+        if proposal.status != ProposalStatus.DRAFT.value:
             raise ValueError
 
         #STATUS CHANGE
-        proposal.status = "voting"
+        proposal.status = ProposalStatus.VOTING.value
 
         #COMMIT, REFRESH AND RETURN PROPOSAL
         self.session.commit()
@@ -100,7 +102,7 @@ class ProposalService:
             raise ValueError
 
         #STATUS CHECK
-        if proposal.status != "draft":
+        if proposal.status != ProposalStatus.DRAFT.value:
             raise ValueError
 
         #DELETE
@@ -128,7 +130,7 @@ class ProposalService:
             raise ValueError
 
         #STATUS CHECK
-        if proposal.status != "voting":
+        if proposal.status != ProposalStatus.VOTING.value:
             raise ValueError
 
         #VALUE CHECK
@@ -165,7 +167,7 @@ class ProposalService:
             raise ValueError
 
         #STATUS CHECK
-        if proposal.status != "voting":
+        if proposal.status != ProposalStatus.VOTING.value:
             raise ValueError
 
         #FINISH PROPOSAL
@@ -182,7 +184,7 @@ class ProposalService:
             raise ValueError
 
         #STATUS CHECK
-        if proposal.status != "voting":
+        if proposal.status != ProposalStatus.VOTING.value:
             raise ValueError
 
         #APPROVE AND REJECT VOTES COUNT
@@ -198,9 +200,9 @@ class ProposalService:
 
         #SET PROPOSAL STATUS
         if approve_count > reject_count:
-            proposal.status = "approved"
+            proposal.status = ProposalStatus.APPROVED.value
         else:
-            proposal.status = "rejected"
+            proposal.status = ProposalStatus.REJECTED.value
 
 
 
