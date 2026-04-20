@@ -11,15 +11,15 @@ from sqlalchemy.orm import Session
 
 from app.models.enums import ProposalStatus
 from app.core.errors import (
-ProposalNotFoundError,
-NotParticipantError,
-AlreadyVotedError,
-InvalidProposalStatusError,
-NotAuthorError,
-UserNotFoundError,
-InvalidVoteValueError,
-EmptyParticipantsError,
-DuplicateParticipantsError,
+    ProposalNotFoundError,
+    NotParticipantError,
+    AlreadyVotedError,
+    InvalidProposalStatusError,
+    NotAuthorError,
+    UserNotFoundError,
+    InvalidVoteValueError,
+    EmptyParticipantsError,
+    DuplicateParticipantsError,
 )
 
 class ProposalService:
@@ -215,6 +215,34 @@ class ProposalService:
         else:
             proposal.status = ProposalStatus.REJECTED.value
 
+    def get_proposal(self, proposal_id):
+
+        #FIND PROPOSAL
+        proposal = self.proposal_repo.get_by_id(proposal_id)
+        if not proposal:
+            raise ProposalNotFoundError
+
+        return proposal
+
+    def get_proposal_votes(self, proposal_id):
+
+        #FIND PROPOSAL
+        proposal = self.proposal_repo.get_by_id(proposal_id)
+        if not proposal:
+            raise ProposalNotFoundError
+
+        proposal_votes = self.vote_repo.get_by_proposal_id(proposal_id)
+        return proposal_votes
+
+    def get_proposal_participants(self, proposal_id):
+
+        #FIND PROPOSAL
+        proposal = self.proposal_repo.get_by_id(proposal_id)
+        if not proposal:
+            raise ProposalNotFoundError
+
+        proposal_participants = self.participant_repo.get_by_proposal_id(proposal_id)
+        return proposal_participants
 
 
 
