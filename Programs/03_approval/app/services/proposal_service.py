@@ -10,6 +10,17 @@ from app.models.participant import Participant
 from sqlalchemy.orm import Session
 
 from app.models.enums import ProposalStatus
+from app.core.errors import (
+ProposalNotFoundError,
+NotParticipantError,
+AlreadyVotedError,
+InvalidProposalStatusError,
+NotAuthorError,
+UserNotFoundError,
+InvalidVoteValueError,
+EmptyParticipantsError,
+DuplicateParticipantsError,
+)
 
 class ProposalService:
     def __init__(self, session: Session):
@@ -24,20 +35,20 @@ class ProposalService:
         #AUTHOR CHECK
         author = self.user_repo.get_by_id(author_id)
         if not author:
-            raise ValueError
+            raise UserNotFoundError
 
         #PARTICIPANT_IDS CHECK
         if not participant_ids:
-            raise ValueError
+            raise EmptyParticipantsError
 
         if len(participant_ids) != len(set(participant_ids)):
-            raise ValueError
+            raise DuplicateParticipantsError
 
         participants_list = []
         for participant_id in participant_ids:
             user = self.user_repo.get_by_id(participant_id)
             if not user:
-                raise ValueError
+                raise UserNotFoundError
             participants_list.append(user)
 
         #CREATE PROPOSAL
@@ -72,15 +83,15 @@ class ProposalService:
         #FIND PROPOSAL
         proposal = self.proposal_repo.get_by_id(proposal_id)
         if not proposal:
-            raise ValueError
+            raise ProposalNotFoundError
 
         #AUTHOR CHECK
         if proposal.author_id != author_id:
-            raise ValueError
+            raise NotAuthorError
 
         #STATUS CHECK
         if proposal.status != ProposalStatus.DRAFT.value:
-            raise ValueError
+            raise InvalidProposalStatusError
 
         #STATUS CHANGE
         proposal.status = ProposalStatus.VOTING.value
@@ -95,15 +106,15 @@ class ProposalService:
         #FIND PROPOSAL
         proposal = self.proposal_repo.get_by_id(proposal_id)
         if not proposal:
-            raise ValueError
+            raise ProposalNotFoundError
 
         #AUTHOR CHECK
         if proposal.author_id != author_id:
-            raise ValueError
+            raise NotAuthorError
 
         #STATUS CHECK
         if proposal.status != ProposalStatus.DRAFT.value:
-            raise ValueError
+            raise InvalidProposalStatusError
 
         #DELETE
         self.proposal_repo.delete(proposal)
@@ -117,25 +128,25 @@ class ProposalService:
         #FIND PROPOSAL
         proposal = self.proposal_repo.get_by_id(proposal_id)
         if not proposal:
-            raise ValueError
+            raise ProposalNotFoundError
 
         #IS USER PARTICIPANT
         participant = self.participant_repo.get_by_user_and_proposal(user_id, proposal_id)
         if not participant:
-            raise ValueError
+            raise NotParticipantError
 
         #VOTE MADE CHECK
         existing_vote = self.vote_repo.get_by_user_and_proposal(user_id, proposal_id)
         if existing_vote:
-            raise ValueError
+            raise AlreadyVotedError
 
         #STATUS CHECK
         if proposal.status != ProposalStatus.VOTING.value:
-            raise ValueError
+            raise InvalidProposalStatusError
 
         #VALUE CHECK
         if value not in ["approve", "reject"]:
-            raise ValueError
+            raise InvalidVoteValueError
 
         #CREATE VOTE
         new_vote = Vote(
@@ -160,15 +171,15 @@ class ProposalService:
         #FIND PROPOSAL
         proposal = self.proposal_repo.get_by_id(proposal_id)
         if not proposal:
-            raise ValueError
+            raise ProposalNotFoundError
 
         #AUTHOR CHECK
         if proposal.author_id != author_id:
-            raise ValueError
+            raise NotAuthorError
 
         #STATUS CHECK
         if proposal.status != ProposalStatus.VOTING.value:
-            raise ValueError
+            raise InvalidProposalStatusError
 
         #FINISH PROPOSAL
         self._finish_proposal(proposal.id)
@@ -181,11 +192,11 @@ class ProposalService:
         #FIND PROPOSAL
         proposal = self.proposal_repo.get_by_id(proposal_id)
         if not proposal:
-            raise ValueError
+            raise ProposalNotFoundError
 
         #STATUS CHECK
         if proposal.status != ProposalStatus.VOTING.value:
-            raise ValueError
+            raise InvalidProposalStatusError
 
         #APPROVE AND REJECT VOTES COUNT
         all_votes = self.vote_repo.get_by_proposal_id(proposal_id)
