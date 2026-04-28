@@ -2,8 +2,20 @@ import pytest
 
 from app.services.proposal_service import ProposalService
 from app.models.user import User
+
 from app.repositories.user_repository import UserRepo
-from app.core.errors import DuplicateParticipantsError, EmptyParticipantsError
+from app.repositories.vote_repository import VoteRepo
+from app.repositories.proposal_repository import ProposalRepo
+
+from app.core.errors import (
+    DuplicateParticipantsError,
+    EmptyParticipantsError,
+    AlreadyVotedError,
+    NotParticipantError,
+    InvalidProposalStatusError,
+    InvalidVoteValueError,
+    ProposalNotFoundError
+)
 
 def test_create_user(session):
 
@@ -81,12 +93,240 @@ def test_proposal_participants_empty(session):
     user1.name = "A"
     user1.email = "a@test.com"
 
-    session.add([user1])
+    session.add(user1)
     session.commit()
 
     #TEST
     service = ProposalService(session)
     with pytest.raises(EmptyParticipantsError):
-        service.create_proposal("proposal_test", "good", user1.id,
-                                [])
+        service.create_proposal("proposal_test", "good", user1.id,[])
+
+def test_create_vote(session):
+
+    #SETUP USERS
+    user1 = User()
+    user1.name = "A"
+    user1.email = "a@test.com"
+
+    user2 = User()
+    user2.name = "B"
+    user2.email = "b@test.com"
+
+    session.add_all([user1, user2])
+    session.commit()
+
+    #SETUP PROPOSAL
+    service = ProposalService(session)
+    proposal = service.create_proposal("open window", "yo", user1.id,
+                                       [user1.id, user2.id])
+
+    service.start_voting(proposal.id)
+
+    #TEST
+    service.create_vote(proposal.id, user1.id, "approve")
+
+    vote_repo = VoteRepo(session)
+    the_vote = vote_repo.get_by_user_and_proposal(user_id=user1.id, proposal_id=proposal.id)
+
+    assert the_vote.user_id == user1.id
+    assert the_vote.proposal_id == proposal.id
+    assert the_vote.value == "approve"
+
+def test_create_vote_duplicate(session):
+
+    #SETUP USERS
+    user1 = User()
+    user1.name = "A"
+    user1.email = "a@test.com"
+
+    user2 = User()
+    user2.name = "B"
+    user2.email = "b@test.com"
+
+    session.add_all([user1, user2])
+    session.commit()
+
+    #SETUP PROPOSAL
+    service = ProposalService(session)
+    proposal = service.create_proposal("open window", "yo", user1.id,
+                                       [user1.id, user2.id])
+
+    service.start_voting(proposal.id)
+
+    #TEST
+    service.create_vote(proposal.id, user1.id, "approve")
+    with pytest.raises(AlreadyVotedError):
+        service.create_vote(proposal.id, user1.id, "approve")
+
+def test_create_vote_not_participant(session):
+
+    #SETUP USERS
+    user1 = User()
+    user1.name = "A"
+    user1.email = "a@test.com"
+
+    user2 = User()
+    user2.name = "B"
+    user2.email = "b@test.com"
+
+    session.add_all([user1, user2])
+    session.commit()
+
+    #SETUP PROPOSAL
+    service = ProposalService(session)
+    proposal = service.create_proposal("open window", "yo", user1.id,
+                                       [user1.id])
+
+    service.start_voting(proposal.id)
+
+    #TEST
+    with pytest.raises(NotParticipantError):
+        service.create_vote(proposal.id, user2.id, "approve")
+
+def test_create_vote_invalid_status(session):
+
+    #SETUP USERS
+    user1 = User()
+    user1.name = "A"
+    user1.email = "a@test.com"
+
+    user2 = User()
+    user2.name = "B"
+    user2.email = "b@test.com"
+
+    session.add_all([user1, user2])
+    session.commit()
+
+    #SETUP PROPOSAL
+    service = ProposalService(session)
+    proposal = service.create_proposal("open window", "yo", user1.id,
+                                       [user1.id, user2.id])
+
+    #TEST
+    with pytest.raises(InvalidProposalStatusError):
+        service.create_vote(proposal.id, user2.id, "approve")
+
+def test_auto_finish_proposal(session):
+
+    #SETUP USERS
+    user1 = User()
+    user1.name = "A"
+    user1.email = "a@test.com"
+
+    user2 = User()
+    user2.name = "B"
+    user2.email = "b@test.com"
+
+    session.add_all([user1, user2])
+    session.commit()
+
+    #SETUP PROPOSAL
+    service = ProposalService(session)
+    proposal = service.create_proposal("open window", "yo", user1.id,
+                                       [user1.id, user2.id])
+
+    service.start_voting(proposal.id)
+
+    #TEST
+    service.create_vote(proposal.id, user1.id, "approve")
+    service.create_vote(proposal.id, user2.id, "approve")
+
+    proposal_repo = ProposalRepo(session)
+    the_proposal = proposal_repo.get_by_id(proposal_id=proposal.id)
+
+    assert the_proposal.status == "approved"
+
+def test_auto_finish_rejected(session):
+
+    #SETUP USERS
+    user1 = User()
+    user1.name = "A"
+    user1.email = "a@test.com"
+
+    user2 = User()
+    user2.name = "B"
+    user2.email = "b@test.com"
+
+    session.add_all([user1, user2])
+    session.commit()
+
+    #SETUP PROPOSAL
+    service = ProposalService(session)
+    proposal = service.create_proposal("open window", "yo", user1.id,
+                                       [user1.id, user2.id])
+
+    service.start_voting(proposal.id)
+
+    #TEST
+    service.create_vote(proposal.id, user1.id, "reject")
+    service.create_vote(proposal.id, user2.id, "reject")
+
+    proposal_repo = ProposalRepo(session)
+    the_proposal = proposal_repo.get_by_id(proposal_id=proposal.id)
+
+    assert the_proposal.status == "rejected"
+
+def test_invalid_vote_value(session):
+
+    #SETUP USERS
+    user1 = User()
+    user1.name = "A"
+    user1.email = "a@test.com"
+
+    user2 = User()
+    user2.name = "B"
+    user2.email = "b@test.com"
+
+    session.add_all([user1, user2])
+    session.commit()
+
+    #SETUP PROPOSAL
+    service = ProposalService(session)
+    proposal = service.create_proposal("open window", "yo", user1.id,
+                                       [user1.id, user2.id])
+
+    service.start_voting(proposal.id)
+
+    #TEST
+    with pytest.raises(InvalidVoteValueError):
+        service.create_vote(proposal.id, user1.id, "bad")
+
+def test_proposal_not_found(session):
+
+    #SETUP USERS
+    user1 = User()
+    user1.name = "A"
+    user1.email = "a@test.com"
+
+    user2 = User()
+    user2.name = "B"
+    user2.email = "b@test.com"
+
+    session.add_all([user1, user2])
+    session.commit()
+
+    service = ProposalService(session)
+
+    #TEST
+    with pytest.raises(ProposalNotFoundError):
+        service.create_vote(999, user1.id, "reject")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
