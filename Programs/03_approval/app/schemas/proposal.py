@@ -15,4 +15,7 @@ class ProposalResponseSchema(BaseModel):
     description: str = Field(min_length=2, max_length=500)
     author_id: int
     status: ProposalStatus
-    
+
+class ProposalResultSchema(BaseModel):
+
+    status: ProposalStatus
