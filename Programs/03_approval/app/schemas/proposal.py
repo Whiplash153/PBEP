@@ -19,3 +19,11 @@ class ProposalResponseSchema(BaseModel):
 class ProposalResultSchema(BaseModel):
 
     status: ProposalStatus
+
+class StartProposalSchema(BaseModel):
+
+    author_id: int
+
+class FinishProposalSchema(BaseModel):
+
+    author_id: int

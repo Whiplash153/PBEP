@@ -150,9 +150,9 @@ class ProposalService:
 
         #CREATE VOTE
         new_vote = Vote(
-            value=value,
+            proposal_id=proposal_id,
             user_id=user_id,
-            proposal_id=proposal_id
+            value=value
         )
 
         #SAVE VOTE
