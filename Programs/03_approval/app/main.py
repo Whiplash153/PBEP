@@ -1,6 +1,7 @@
 from fastapi import Request, FastAPI
 from fastapi.responses import JSONResponse
 
+from app.routers.proposal import router
 from app.core.errors import (
     ProposalNotFoundError,
     NotParticipantError,
@@ -14,6 +15,7 @@ from app.core.errors import (
 )
 
 app = FastAPI()
+app.include_router(router)
 
 #ERRORS MAPPING
 @app.exception_handler(ProposalNotFoundError)
