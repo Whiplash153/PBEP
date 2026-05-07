@@ -1,7 +1,9 @@
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, ForeignKey, DateTime
+from sqlalchemy import String, ForeignKey, DateTime, Enum
 from datetime import datetime, timezone
+
 from app.db.base import Base
+from app.models.enums import ProposalStatus
 
 class Proposal(Base):
     __tablename__ = "proposals"
@@ -9,7 +11,7 @@ class Proposal(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str] = mapped_column(String, nullable=False)
-    status: Mapped[str] = mapped_column(String, nullable=False)
+    status: Mapped[ProposalStatus] = mapped_column(Enum(ProposalStatus), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     author_id: Mapped[int] = mapped_column(ForeignKey("users.id"))

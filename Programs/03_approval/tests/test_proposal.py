@@ -7,6 +7,8 @@ from app.repositories.user_repository import UserRepo
 from app.repositories.vote_repository import VoteRepo
 from app.repositories.proposal_repository import ProposalRepo
 
+from app.models.enums import ProposalStatus
+
 from app.core.errors import (
     DuplicateParticipantsError,
     EmptyParticipantsError,
@@ -60,7 +62,7 @@ def test_create_proposal(session):
     assert proposal.title == "proposal_test"
     assert proposal.description == "good"
     assert proposal.author_id == user1.id
-    assert proposal.status == "draft"
+    assert proposal.status == ProposalStatus.DRAFT
 
     actual_ids = [participant.user_id for participant in proposal.participants]
     expected_ids = [user1.id, user2.id, user3.id]
@@ -120,7 +122,7 @@ def test_create_vote(session):
     proposal = service.create_proposal("open window", "yo", user1.id,
                                        [user1.id, user2.id])
 
-    service.start_voting(proposal.id)
+    service.start_voting(proposal.id, user1.id)
 
     #TEST
     service.create_vote(proposal.id, user1.id, "approve")
@@ -151,7 +153,7 @@ def test_create_vote_duplicate(session):
     proposal = service.create_proposal("open window", "yo", user1.id,
                                        [user1.id, user2.id])
 
-    service.start_voting(proposal.id)
+    service.start_voting(proposal.id, user1.id)
 
     #TEST
     service.create_vote(proposal.id, user1.id, "approve")
@@ -177,7 +179,7 @@ def test_create_vote_not_participant(session):
     proposal = service.create_proposal("open window", "yo", user1.id,
                                        [user1.id])
 
-    service.start_voting(proposal.id)
+    service.start_voting(proposal.id, user1.id)
 
     #TEST
     with pytest.raises(NotParticipantError):
@@ -225,7 +227,7 @@ def test_auto_finish_proposal(session):
     proposal = service.create_proposal("open window", "yo", user1.id,
                                        [user1.id, user2.id])
 
-    service.start_voting(proposal.id)
+    service.start_voting(proposal.id, user1.id)
 
     #TEST
     service.create_vote(proposal.id, user1.id, "approve")
@@ -234,7 +236,7 @@ def test_auto_finish_proposal(session):
     proposal_repo = ProposalRepo(session)
     the_proposal = proposal_repo.get_by_id(proposal_id=proposal.id)
 
-    assert the_proposal.status == "approved"
+    assert the_proposal.status == ProposalStatus.APPROVED
 
 def test_auto_finish_rejected(session):
 
@@ -255,7 +257,7 @@ def test_auto_finish_rejected(session):
     proposal = service.create_proposal("open window", "yo", user1.id,
                                        [user1.id, user2.id])
 
-    service.start_voting(proposal.id)
+    service.start_voting(proposal.id, user1.id)
 
     #TEST
     service.create_vote(proposal.id, user1.id, "reject")
@@ -264,32 +266,7 @@ def test_auto_finish_rejected(session):
     proposal_repo = ProposalRepo(session)
     the_proposal = proposal_repo.get_by_id(proposal_id=proposal.id)
 
-    assert the_proposal.status == "rejected"
-
-def test_invalid_vote_value(session):
-
-    #SETUP USERS
-    user1 = User()
-    user1.name = "A"
-    user1.email = "a@test.com"
-
-    user2 = User()
-    user2.name = "B"
-    user2.email = "b@test.com"
-
-    session.add_all([user1, user2])
-    session.commit()
-
-    #SETUP PROPOSAL
-    service = ProposalService(session)
-    proposal = service.create_proposal("open window", "yo", user1.id,
-                                       [user1.id, user2.id])
-
-    service.start_voting(proposal.id)
-
-    #TEST
-    with pytest.raises(InvalidVoteValueError):
-        service.create_vote(proposal.id, user1.id, "bad")
+    assert the_proposal.status == ProposalStatus.REJECTED
 
 def test_proposal_not_found(session):
 

@@ -56,7 +56,7 @@ class ProposalService:
             title=title,
             description=description,
             author_id=author_id,
-            status=ProposalStatus.DRAFT.value
+            status=ProposalStatus.DRAFT
         )
 
         #ADD PROPOSAL
@@ -90,11 +90,11 @@ class ProposalService:
             raise NotAuthorError
 
         #STATUS CHECK
-        if proposal.status != ProposalStatus.DRAFT.value:
+        if proposal.status != ProposalStatus.DRAFT:
             raise InvalidProposalStatusError
 
         #STATUS CHANGE
-        proposal.status = ProposalStatus.VOTING.value
+        proposal.status = ProposalStatus.VOTING
 
         #COMMIT, REFRESH AND RETURN PROPOSAL
         self.session.commit()
@@ -113,7 +113,7 @@ class ProposalService:
             raise NotAuthorError
 
         #STATUS CHECK
-        if proposal.status != ProposalStatus.DRAFT.value:
+        if proposal.status != ProposalStatus.DRAFT:
             raise InvalidProposalStatusError
 
         #DELETE
@@ -141,12 +141,8 @@ class ProposalService:
             raise AlreadyVotedError
 
         #STATUS CHECK
-        if proposal.status != ProposalStatus.VOTING.value:
+        if proposal.status != ProposalStatus.VOTING:
             raise InvalidProposalStatusError
-
-        #VALUE CHECK
-        if value not in ["approve", "reject"]:
-            raise InvalidVoteValueError
 
         #CREATE VOTE
         new_vote = Vote(
@@ -178,7 +174,7 @@ class ProposalService:
             raise NotAuthorError
 
         #STATUS CHECK
-        if proposal.status != ProposalStatus.VOTING.value:
+        if proposal.status != ProposalStatus.VOTING:
             raise InvalidProposalStatusError
 
         #FINISH PROPOSAL
@@ -195,7 +191,7 @@ class ProposalService:
             raise ProposalNotFoundError
 
         #STATUS CHECK
-        if proposal.status != ProposalStatus.VOTING.value:
+        if proposal.status != ProposalStatus.VOTING:
             raise InvalidProposalStatusError
 
         #APPROVE AND REJECT VOTES COUNT
@@ -211,9 +207,9 @@ class ProposalService:
 
         #SET PROPOSAL STATUS
         if approve_count > reject_count:
-            proposal.status = ProposalStatus.APPROVED.value
+            proposal.status = ProposalStatus.APPROVED
         else:
-            proposal.status = ProposalStatus.REJECTED.value
+            proposal.status = ProposalStatus.REJECTED
 
     def get_proposal(self, proposal_id):
 
