@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from app.services.proposal_service import ProposalService
 from app.db.session import SessionLocal
 

@@ -15,7 +15,6 @@ from app.core.errors import (
     AlreadyVotedError,
     NotParticipantError,
     InvalidProposalStatusError,
-    InvalidVoteValueError,
     ProposalNotFoundError
 )
 
