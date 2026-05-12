@@ -29,6 +29,39 @@ class ProposalService:
         self.vote_repo = VoteRepo(session)
         self.participant_repo = ParticipantRepo(session)
 
+    #STATUS CHANGER (INSIDE)
+    def _status_changer(self, proposal, new_status):
+        proposal.status = new_status
+
+    #AUTO FINISH (INSIDE)
+    def _finish_proposal(self, proposal_id):
+
+        # FIND PROPOSAL
+        proposal = self.proposal_repo.get_by_id(proposal_id)
+        if not proposal:
+            raise ProposalNotFoundError
+
+        # STATUS CHECK
+        if proposal.status != ProposalStatus.VOTING:
+            raise InvalidProposalStatusError
+
+        # APPROVE AND REJECT VOTES COUNT
+        all_votes = self.vote_repo.get_by_proposal_id(proposal_id)
+
+        approve_count = 0
+        reject_count = 0
+        for vote in all_votes:
+            if vote.value == "approve":
+                approve_count += 1
+            else:
+                reject_count += 1
+
+        # SET PROPOSAL STATUS
+        if approve_count > reject_count:
+            self._status_changer(proposal, ProposalStatus.APPROVED)
+        else:
+            self._status_changer(proposal, ProposalStatus.REJECTED)
+
     def create_proposal(self, title, description, author_id, participant_ids):
 
         #AUTHOR CHECK
@@ -93,7 +126,7 @@ class ProposalService:
             raise InvalidProposalStatusError
 
         #STATUS CHANGE
-        proposal.status = ProposalStatus.VOTING
+        self._status_changer(proposal, ProposalStatus.VOTING)
 
         #COMMIT, REFRESH AND RETURN PROPOSAL
         self.session.commit()
@@ -181,34 +214,6 @@ class ProposalService:
 
         self.session.commit()
         return proposal
-
-    def _finish_proposal(self, proposal_id):
-
-        #FIND PROPOSAL
-        proposal = self.proposal_repo.get_by_id(proposal_id)
-        if not proposal:
-            raise ProposalNotFoundError
-
-        #STATUS CHECK
-        if proposal.status != ProposalStatus.VOTING:
-            raise InvalidProposalStatusError
-
-        #APPROVE AND REJECT VOTES COUNT
-        all_votes = self.vote_repo.get_by_proposal_id(proposal_id)
-
-        approve_count = 0
-        reject_count = 0
-        for vote in all_votes:
-            if vote.value == "approve":
-                approve_count += 1
-            else:
-                reject_count += 1
-
-        #SET PROPOSAL STATUS
-        if approve_count > reject_count:
-            proposal.status = ProposalStatus.APPROVED
-        else:
-            proposal.status = ProposalStatus.REJECTED
 
     def get_proposal(self, proposal_id):
 
