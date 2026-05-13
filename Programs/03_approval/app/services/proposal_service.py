@@ -29,11 +29,24 @@ class ProposalService:
         self.vote_repo = VoteRepo(session)
         self.participant_repo = ParticipantRepo(session)
 
-    #STATUS CHANGER (INSIDE)
+    #_STATUS CHANGER
     def _status_changer(self, proposal, new_status):
+
+        allowed_transitions = {
+            ProposalStatus.DRAFT: [ProposalStatus.VOTING],
+            ProposalStatus.VOTING: [ProposalStatus.APPROVED, ProposalStatus.REJECTED],
+            ProposalStatus.APPROVED: [],
+            ProposalStatus.REJECTED: [],
+        }
+
+        current_status = proposal.status
+
+        if new_status not in allowed_transitions[current_status]:
+            raise InvalidProposalStatusError
+
         proposal.status = new_status
 
-    #AUTO FINISH (INSIDE)
+    #_AUTO FINISH
     def _finish_proposal(self, proposal_id):
 
         # FIND PROPOSAL
@@ -46,11 +59,18 @@ class ProposalService:
             raise InvalidProposalStatusError
 
         # APPROVE AND REJECT VOTES COUNT
-        all_votes = self.vote_repo.get_by_proposal_id(proposal_id)
+        votes = self.vote_repo.get_by_proposal_id(proposal_id)
+
+        status_upd = self._calculate_result(votes)
+
+        self._status_changer(proposal, status_upd)
+
+    #_VOTES COUNTER
+    def _calculate_result(self, votes):
 
         approve_count = 0
         reject_count = 0
-        for vote in all_votes:
+        for vote in votes:
             if vote.value == "approve":
                 approve_count += 1
             else:
@@ -58,9 +78,9 @@ class ProposalService:
 
         # SET PROPOSAL STATUS
         if approve_count > reject_count:
-            self._status_changer(proposal, ProposalStatus.APPROVED)
+            return ProposalStatus.APPROVED
         else:
-            self._status_changer(proposal, ProposalStatus.REJECTED)
+            return ProposalStatus.REJECTED
 
     def create_proposal(self, title, description, author_id, participant_ids):
 
