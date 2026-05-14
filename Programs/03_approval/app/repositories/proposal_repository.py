@@ -12,5 +12,9 @@ class ProposalRepo:
         result = self.session.query(Proposal).filter(Proposal.id == proposal_id).first()
         return result
 
+    def locked_get_by_id(self, proposal_id):
+        result = self.session.query(Proposal).filter(Proposal.id == proposal_id).with_for_update().first()
+        return result
+
     def delete(self, proposal):
         self.session.delete(proposal)

@@ -132,8 +132,8 @@ class ProposalService:
 
     def start_voting(self, proposal_id, author_id):
 
-        #FIND PROPOSAL
-        proposal = self.proposal_repo.get_by_id(proposal_id)
+        #FIND PROPOSAL (LOCKED!)
+        proposal = self.proposal_repo.locked_get_by_id(proposal_id)
         if not proposal:
             raise ProposalNotFoundError
 
@@ -155,8 +155,8 @@ class ProposalService:
 
     def delete_proposal(self, proposal_id, author_id):
 
-        #FIND PROPOSAL
-        proposal = self.proposal_repo.get_by_id(proposal_id)
+        #FIND PROPOSAL (LOCKED!)
+        proposal = self.proposal_repo.locked_get_by_id(proposal_id)
         if not proposal:
             raise ProposalNotFoundError
 
@@ -177,8 +177,8 @@ class ProposalService:
 
     def create_vote(self, proposal_id, user_id, value):
 
-        #FIND PROPOSAL
-        proposal = self.proposal_repo.get_by_id(proposal_id)
+        #FIND PROPOSAL (LOCKED!)
+        proposal = self.proposal_repo.locked_get_by_id(proposal_id)
         if not proposal:
             raise ProposalNotFoundError
 
@@ -216,8 +216,8 @@ class ProposalService:
 
     def manual_finish(self, proposal_id, author_id):
 
-        #FIND PROPOSAL
-        proposal = self.proposal_repo.get_by_id(proposal_id)
+        #FIND PROPOSAL (LOCKED!)
+        proposal = self.proposal_repo.locked_get_by_id(proposal_id)
         if not proposal:
             raise ProposalNotFoundError
 
