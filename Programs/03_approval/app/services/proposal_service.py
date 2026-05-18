@@ -19,6 +19,7 @@ from app.core.errors import (
     UserNotFoundError,
     EmptyParticipantsError,
     DuplicateParticipantsError,
+    VoteNotExistsError
 )
 
 class ProposalService:
@@ -28,6 +29,12 @@ class ProposalService:
         self.user_repo = UserRepo(session)
         self.vote_repo = VoteRepo(session)
         self.participant_repo = ParticipantRepo(session)
+
+    #MAYBE FINISH
+    def _maybe_finish(self, proposal_id):
+
+        if self.vote_repo.votes_count(proposal_id) == self.participant_repo.participants_count(proposal_id):
+            self._finish_proposal(proposal_id)
 
     #_STATUS CHANGER
     def _status_changer(self, proposal, new_status):
@@ -49,8 +56,8 @@ class ProposalService:
     #_AUTO FINISH
     def _finish_proposal(self, proposal_id):
 
-        # FIND PROPOSAL
-        proposal = self.proposal_repo.get_by_id(proposal_id)
+        #FIND PROPOSAL (LOCKED!)
+        proposal = self.proposal_repo.locked_get_by_id(proposal_id)
         if not proposal:
             raise ProposalNotFoundError
 
@@ -175,6 +182,44 @@ class ProposalService:
         self.session.commit()
         return proposal
 
+    def change_vote(self, proposal_id, user_id, value):
+
+        # FIND PROPOSAL (LOCKED!)
+        proposal = self.proposal_repo.locked_get_by_id(proposal_id)
+        if not proposal:
+            raise ProposalNotFoundError
+
+        # IS USER PARTICIPANT
+        participant = self.participant_repo.get_by_user_and_proposal(
+            user_id,
+            proposal_id
+        )
+        if not participant:
+            raise NotParticipantError
+
+        # EXISTING VOTE CHECK
+        existing_vote = self.vote_repo.get_by_user_and_proposal(
+            user_id,
+            proposal_id
+        )
+        if not existing_vote:
+            raise VoteNotExistsError
+
+        # STATUS CHECK
+        if proposal.status != ProposalStatus.VOTING:
+            raise InvalidProposalStatusError
+
+        # CHANGE VOTE
+        existing_vote.value = value
+
+        self.session.flush()
+
+        # FINISH CHECK
+        self._maybe_finish(proposal_id)
+
+        self.session.commit()
+        return existing_vote
+
     def create_vote(self, proposal_id, user_id, value):
 
         #FIND PROPOSAL (LOCKED!)
@@ -208,8 +253,7 @@ class ProposalService:
         self.session.flush()
 
         #FINISH CHECK
-        if self.vote_repo.votes_count(proposal_id) == self.participant_repo.participants_count(proposal_id):
-            self._finish_proposal(proposal.id)
+        self._maybe_finish(proposal_id)
 
         self.session.commit()
         return new_vote

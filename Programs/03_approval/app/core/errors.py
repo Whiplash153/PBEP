@@ -27,3 +27,6 @@ class EmptyParticipantsError(BaseDomainError):
 
 class DuplicateParticipantsError(BaseDomainError):
     pass
+
+class VoteNotExistsError(BaseDomainError):
+    pass
