@@ -13,6 +13,7 @@ class Proposal(Base):
     description: Mapped[str] = mapped_column(String, nullable=False)
     status: Mapped[ProposalStatus] = mapped_column(Enum(ProposalStatus), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    deadline: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     author_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
 

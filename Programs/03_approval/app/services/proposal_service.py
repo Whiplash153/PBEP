@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from app.repositories.user_repository import UserRepo
 from app.repositories.vote_repository import VoteRepo
 from app.repositories.proposal_repository import ProposalRepo
@@ -30,13 +32,56 @@ class ProposalService:
         self.vote_repo = VoteRepo(session)
         self.participant_repo = ParticipantRepo(session)
 
-    #MAYBE FINISH
-    def _maybe_finish(self, proposal_id):
+    # ======= INTERNAL HELPERS ========
+    # =================================
 
-        if self.vote_repo.votes_count(proposal_id) == self.participant_repo.participants_count(proposal_id):
-            self._finish_proposal(proposal_id)
+    def _maybe_finish(self, proposal):
 
-    #_STATUS CHANGER
+        #ALL VOTED CHECK
+        if self.vote_repo.votes_count(proposal.id) == self.participant_repo.participants_count(proposal.id):
+            self._finish_proposal(proposal.id)
+            return
+
+        #DEADLINE CHECK
+        if proposal.deadline:
+            if datetime.now(timezone.utc) > proposal.deadline:
+                self._finish_proposal(proposal.id)
+                return
+
+    def _finish_proposal(self, proposal_id):
+
+        #FIND PROPOSAL (LOCKED!)
+        proposal = self.proposal_repo.locked_get_by_id(proposal_id)
+        if not proposal:
+            raise ProposalNotFoundError
+
+        # STATUS CHECK
+        if proposal.status != ProposalStatus.VOTING:
+            raise InvalidProposalStatusError
+
+        # APPROVE OR REJECT FINAL STATUS CHOOSE
+        votes = self.vote_repo.get_by_proposal_id(proposal_id)
+
+        status_upd = self._calculate_result(votes)
+
+        self._status_changer(proposal, status_upd)
+
+    def _calculate_result(self, votes):
+
+        approve_count = 0
+        reject_count = 0
+        for vote in votes:
+            if vote.value == "approve":
+                approve_count += 1
+            else:
+                reject_count += 1
+
+        # SET PROPOSAL STATUS
+        if approve_count > reject_count:
+            return ProposalStatus.APPROVED
+        else:
+            return ProposalStatus.REJECTED
+
     def _status_changer(self, proposal, new_status):
 
         allowed_transitions = {
@@ -53,41 +98,8 @@ class ProposalService:
 
         proposal.status = new_status
 
-    #_AUTO FINISH
-    def _finish_proposal(self, proposal_id):
-
-        #FIND PROPOSAL (LOCKED!)
-        proposal = self.proposal_repo.locked_get_by_id(proposal_id)
-        if not proposal:
-            raise ProposalNotFoundError
-
-        # STATUS CHECK
-        if proposal.status != ProposalStatus.VOTING:
-            raise InvalidProposalStatusError
-
-        # APPROVE AND REJECT VOTES COUNT
-        votes = self.vote_repo.get_by_proposal_id(proposal_id)
-
-        status_upd = self._calculate_result(votes)
-
-        self._status_changer(proposal, status_upd)
-
-    #_VOTES COUNTER
-    def _calculate_result(self, votes):
-
-        approve_count = 0
-        reject_count = 0
-        for vote in votes:
-            if vote.value == "approve":
-                approve_count += 1
-            else:
-                reject_count += 1
-
-        # SET PROPOSAL STATUS
-        if approve_count > reject_count:
-            return ProposalStatus.APPROVED
-        else:
-            return ProposalStatus.REJECTED
+    # ======= PROPOSAL LIFECYCLE ========
+    # ===================================
 
     def create_proposal(self, title, description, author_id, participant_ids):
 
@@ -182,6 +194,30 @@ class ProposalService:
         self.session.commit()
         return proposal
 
+    def manual_finish(self, proposal_id, author_id):
+
+        #FIND PROPOSAL (LOCKED!)
+        proposal = self.proposal_repo.locked_get_by_id(proposal_id)
+        if not proposal:
+            raise ProposalNotFoundError
+
+        #AUTHOR CHECK
+        if proposal.author_id != author_id:
+            raise NotAuthorError
+
+        #STATUS CHECK
+        if proposal.status != ProposalStatus.VOTING:
+            raise InvalidProposalStatusError
+
+        #FINISH PROPOSAL
+        self._finish_proposal(proposal.id)
+
+        self.session.commit()
+        return proposal
+
+    # ======= VOTE OPERATIONS ========
+    # ================================
+
     def change_vote(self, proposal_id, user_id, value):
 
         # FIND PROPOSAL (LOCKED!)
@@ -215,7 +251,7 @@ class ProposalService:
         self.session.flush()
 
         # FINISH CHECK
-        self._maybe_finish(proposal_id)
+        self._maybe_finish(proposal)
 
         self.session.commit()
         return existing_vote
@@ -253,31 +289,13 @@ class ProposalService:
         self.session.flush()
 
         #FINISH CHECK
-        self._maybe_finish(proposal_id)
+        self._maybe_finish(proposal)
 
         self.session.commit()
         return new_vote
 
-    def manual_finish(self, proposal_id, author_id):
-
-        #FIND PROPOSAL (LOCKED!)
-        proposal = self.proposal_repo.locked_get_by_id(proposal_id)
-        if not proposal:
-            raise ProposalNotFoundError
-
-        #AUTHOR CHECK
-        if proposal.author_id != author_id:
-            raise NotAuthorError
-
-        #STATUS CHECK
-        if proposal.status != ProposalStatus.VOTING:
-            raise InvalidProposalStatusError
-
-        #FINISH PROPOSAL
-        self._finish_proposal(proposal.id)
-
-        self.session.commit()
-        return proposal
+    # ======= READ METHODS ========
+    # =============================
 
     def get_proposal(self, proposal_id):
 
