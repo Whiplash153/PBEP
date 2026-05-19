@@ -32,8 +32,8 @@ class ProposalService:
         self.vote_repo = VoteRepo(session)
         self.participant_repo = ParticipantRepo(session)
 
-    # ======= INTERNAL HELPERS ========
-    # =================================
+# ======= INTERNAL HELPERS ========
+# =================================
 
     def _maybe_finish(self, proposal):
 
@@ -98,8 +98,8 @@ class ProposalService:
 
         proposal.status = new_status
 
-    # ======= PROPOSAL LIFECYCLE ========
-    # ===================================
+# ======= PROPOSAL LIFECYCLE ========
+# ===================================
 
     def create_proposal(self, title, description, author_id, participant_ids):
 
@@ -215,8 +215,38 @@ class ProposalService:
         self.session.commit()
         return proposal
 
-    # ======= VOTE OPERATIONS ========
-    # ================================
+    def update_proposal(self, proposal_id, author_id,
+                        title=None, description=None, deadline=None):
+
+        #FIND PROPOSAL (LOCKED!)
+        proposal = self.proposal_repo.locked_get_by_id(proposal_id)
+        if not proposal:
+            raise ProposalNotFoundError
+
+        #AUTHOR CHECK
+        if proposal.author_id != author_id:
+            raise NotAuthorError
+
+        #STATUS CHECK
+        if proposal.status != ProposalStatus.DRAFT:
+            raise InvalidProposalStatusError
+
+        #UPDATE
+        if title is not None:
+            proposal.title = title
+
+        if description is not None:
+            proposal.description = description
+
+        if deadline is not None:
+            proposal.deadline = deadline
+
+        #COMMIT AND RETURN PROPOSAL
+        self.session.commit()
+        return proposal
+
+# ======= VOTE OPERATIONS ========
+# ================================
 
     def change_vote(self, proposal_id, user_id, value):
 
@@ -294,8 +324,8 @@ class ProposalService:
         self.session.commit()
         return new_vote
 
-    # ======= READ METHODS ========
-    # =============================
+# ======= READ METHODS ========
+# =============================
 
     def get_proposal(self, proposal_id):
 
