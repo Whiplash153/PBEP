@@ -4,10 +4,12 @@ from app.repositories.user_repository import UserRepo
 from app.repositories.vote_repository import VoteRepo
 from app.repositories.proposal_repository import ProposalRepo
 from app.repositories.participant_repository import ParticipantRepo
+from app.repositories.audit_log_repository import AuditLogRepo
 
 from app.models.proposal import Proposal
 from app.models.vote import Vote
 from app.models.participant import Participant
+from app.models.audit import AuditLog
 
 from sqlalchemy.orm import Session
 
@@ -31,24 +33,34 @@ class ProposalService:
         self.user_repo = UserRepo(session)
         self.vote_repo = VoteRepo(session)
         self.participant_repo = ParticipantRepo(session)
+        self.audit_repo = AuditLogRepo(session)
 
 # ======= INTERNAL HELPERS ========
 # =================================
+
+    def _log_action(self, proposal_id, user_id, action):
+
+        new_log = AuditLog(
+            proposal_id=proposal_id,
+            user_id=user_id,
+            action=action
+        )
+        self.audit_repo.create(new_log)
 
     def _maybe_finish(self, proposal):
 
         #ALL VOTED CHECK
         if self.vote_repo.votes_count(proposal.id) == self.participant_repo.participants_count(proposal.id):
-            self._finish_proposal(proposal.id)
+            self._finish_proposal(proposal.id, action="auto_finish(all_voted)")
             return
 
         #DEADLINE CHECK
         if proposal.deadline:
             if datetime.now(timezone.utc) > proposal.deadline:
-                self._finish_proposal(proposal.id)
+                self._finish_proposal(proposal.id, action="auto_finish(deadline)")
                 return
 
-    def _finish_proposal(self, proposal_id):
+    def _finish_proposal(self, proposal_id, action):
 
         #FIND PROPOSAL (LOCKED!)
         proposal = self.proposal_repo.locked_get_by_id(proposal_id)
@@ -65,6 +77,13 @@ class ProposalService:
         status_upd = self._calculate_result(votes)
 
         self._status_changer(proposal, status_upd)
+
+        #LOG
+        self._log_action(
+            proposal_id=proposal.id,
+            user_id=proposal.author_id,
+            action=action
+        )
 
     def _calculate_result(self, votes):
 
@@ -144,6 +163,13 @@ class ProposalService:
             )
             self.participant_repo.add(participant)
 
+        #LOG
+        self._log_action(
+            proposal_id=new_proposal.id,
+            user_id=author_id,
+            action="create_proposal"
+        )
+
         #COMMIT, REFRESH AND RETURN PROPOSAL
         self.session.commit()
         self.session.refresh(new_proposal)
@@ -166,6 +192,13 @@ class ProposalService:
 
         #STATUS CHANGE
         self._status_changer(proposal, ProposalStatus.VOTING)
+
+        #LOG
+        self._log_action(
+            proposal_id=proposal.id,
+            user_id=author_id,
+            action="start_voting"
+        )
 
         #COMMIT, REFRESH AND RETURN PROPOSAL
         self.session.commit()
@@ -190,6 +223,13 @@ class ProposalService:
         #DELETE
         self.proposal_repo.delete(proposal)
 
+        #LOG
+        self._log_action(
+            proposal_id=proposal.id,
+            user_id=author_id,
+            action="delete_proposal"
+        )
+
         #COMMIT AND RETURN PROPOSAL
         self.session.commit()
         return proposal
@@ -210,7 +250,7 @@ class ProposalService:
             raise InvalidProposalStatusError
 
         #FINISH PROPOSAL
-        self._finish_proposal(proposal.id)
+        self._finish_proposal(proposal.id, action="manual_finish")
 
         self.session.commit()
         return proposal
@@ -240,6 +280,13 @@ class ProposalService:
 
         if deadline is not None:
             proposal.deadline = deadline
+
+        #LOG
+        self._log_action(
+            proposal_id=proposal.id,
+            user_id=author_id,
+            action="update_proposal"
+        )
 
         #COMMIT AND RETURN PROPOSAL
         self.session.commit()
@@ -280,6 +327,13 @@ class ProposalService:
 
         self.session.flush()
 
+        #LOG
+        self._log_action(
+            proposal_id=proposal.id,
+            user_id=user_id,
+            action="change_vote"
+        )
+
         # FINISH CHECK
         self._maybe_finish(proposal)
 
@@ -317,6 +371,13 @@ class ProposalService:
         #SAVE VOTE
         self.vote_repo.add(new_vote)
         self.session.flush()
+
+        #LOG
+        self._log_action(
+            proposal_id=proposal.id,
+            user_id=user_id,
+            action="create_vote"
+        )
 
         #FINISH CHECK
         self._maybe_finish(proposal)
