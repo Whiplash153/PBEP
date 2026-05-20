@@ -23,7 +23,7 @@ from app.core.errors import (
     UserNotFoundError,
     EmptyParticipantsError,
     DuplicateParticipantsError,
-    VoteNotExistsError
+    VoteNotFoundError
 )
 
 class ProposalService:
@@ -316,7 +316,7 @@ class ProposalService:
             proposal_id
         )
         if not existing_vote:
-            raise VoteNotExistsError
+            raise VoteNotFoundError
 
         # STATUS CHECK
         if proposal.status != ProposalStatus.VOTING:

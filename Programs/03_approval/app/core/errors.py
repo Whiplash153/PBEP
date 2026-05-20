@@ -1,32 +1,52 @@
 class BaseDomainError(Exception):
     pass
 
-class ProposalNotFoundError(BaseDomainError):
+# ===== NOT EXISTS =====
+class EntityError(BaseDomainError):
     pass
 
-class UserNotFoundError(BaseDomainError):
+class ProposalNotFoundError(EntityError):
     pass
 
-class NotParticipantError(BaseDomainError):
+class UserNotFoundError(EntityError):
     pass
 
-class AlreadyVotedError(BaseDomainError):
+class VoteNotFoundError(EntityError):
     pass
 
-class InvalidProposalStatusError(BaseDomainError):
+# ===== NO RIGHTS =====
+class PermissionError(BaseDomainError):
     pass
 
-class NotAuthorError(BaseDomainError):
+class NotParticipantError(PermissionError):
     pass
 
-class InvalidVoteValueError(BaseDomainError):
+class NotAuthorError(PermissionError):
     pass
 
-class EmptyParticipantsError(BaseDomainError):
+# ===== WRONG STATE =====
+class LifecycleError(BaseDomainError):
     pass
 
-class DuplicateParticipantsError(BaseDomainError):
+class InvalidProposalStatusError(LifecycleError):
     pass
 
-class VoteNotExistsError(BaseDomainError):
+# ===== BAD DATA =====
+class ValidationError(BaseDomainError):
+    pass
+
+class InvalidVoteValueError(ValidationError):
+    pass
+
+class EmptyParticipantsError(ValidationError):
+    pass
+
+class DuplicateParticipantsError(ValidationError):
+    pass
+
+# ===== BREAKING RULES =====
+class BusinessRuleError(BaseDomainError):
+    pass
+
+class AlreadyVotedError(BusinessRuleError):
     pass
