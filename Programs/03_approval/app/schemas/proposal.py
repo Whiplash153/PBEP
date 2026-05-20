@@ -1,5 +1,7 @@
 from pydantic import BaseModel, Field
 from app.models.enums import ProposalStatus
+from datetime import datetime
+from app.schemas.vote import VoteResponseSchema
 
 class ProposalCreateSchema(BaseModel):
 
@@ -7,6 +9,7 @@ class ProposalCreateSchema(BaseModel):
     description: str = Field(min_length=2, max_length=500)
     author_id: int
     participant_ids: list[int]
+    deadline: datetime | None = None
 
 class ProposalResponseSchema(BaseModel):
 
@@ -15,6 +18,9 @@ class ProposalResponseSchema(BaseModel):
     description: str = Field(min_length=2, max_length=500)
     author_id: int
     status: ProposalStatus
+    created_at: datetime
+    deadline: datetime | None = None
+    votes: list[VoteResponseSchema] | None = None
 
 class ProposalResultSchema(BaseModel):
 

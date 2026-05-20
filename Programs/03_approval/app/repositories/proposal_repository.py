@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from app.models.proposal import Proposal
 
 class ProposalRepo:
@@ -10,6 +10,13 @@ class ProposalRepo:
 
     def get_by_id(self, proposal_id):
         result = self.session.query(Proposal).filter(Proposal.id == proposal_id).first()
+        return result
+
+    def get_with_votes(self, proposal_id):
+        result = (self.session.query(Proposal).
+                  options(joinedload(Proposal.votes)).
+                  filter(Proposal.id == proposal_id).
+                  first())
         return result
 
     def locked_get_by_id(self, proposal_id):

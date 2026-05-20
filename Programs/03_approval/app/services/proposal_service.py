@@ -417,6 +417,15 @@ class ProposalService:
         proposal_participants = self.participant_repo.get_by_proposal_id(proposal_id)
         return proposal_participants
 
+    def get_proposal_with_votes(self, proposal_id):
+
+        #FIND PROPOSAL
+        proposal = self.proposal_repo.get_with_votes(proposal_id)
+        if not proposal:
+            raise ProposalNotFoundError
+
+        return proposal
+
 
 
 

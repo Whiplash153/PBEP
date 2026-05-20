@@ -10,6 +10,7 @@ class VoteCreateSchema(BaseModel):
 
 class VoteResponseSchema(BaseModel):
 
+    id: int
     value: Literal["approve", "reject"]
     user_id: int
     proposal_id: int

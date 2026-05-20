@@ -13,6 +13,21 @@ from app.schemas.vote import VoteCreateSchema, VoteResponseSchema
 
 router = APIRouter()
 
+# ==== HELPER ====
+def proposal_response_schema(proposal, votes=None):
+
+    return ProposalResponseSchema(
+        id=proposal.id,
+        title=proposal.title,
+        description=proposal.description,
+        author_id=proposal.author_id,
+        status=proposal.status,
+        created_at=proposal.created_at,
+        deadline=proposal.deadline,
+        votes=votes
+    )
+
+# ==== ENDPOINTS ====
 @router.post("/proposals", response_model=ProposalResponseSchema)
 def create_proposal(data: ProposalCreateSchema):
     session = SessionLocal()
@@ -21,13 +36,7 @@ def create_proposal(data: ProposalCreateSchema):
         service = ProposalService(session)
         proposal = service.create_proposal(data.title, data.description, data.author_id, data.participant_ids)
 
-        return ProposalResponseSchema(
-            id=proposal.id,
-            title=proposal.title,
-            description=proposal.description,
-            author_id=proposal.author_id,
-            status=proposal.status
-        )
+        return proposal_response_schema(proposal)
     finally:
         session.close()
 
@@ -39,13 +48,7 @@ def get_proposal_by_id(proposal_id):
         service = ProposalService(session)
         proposal = service.get_proposal(proposal_id=proposal_id)
 
-        return ProposalResponseSchema(
-            id=proposal.id,
-            title=proposal.title,
-            description=proposal.description,
-            author_id=proposal.author_id,
-            status=proposal.status
-        )
+        return proposal_response_schema(proposal)
     finally:
         session.close()
 
@@ -59,6 +62,7 @@ def create_vote(data: VoteCreateSchema):
         proposal = service.get_proposal(data.proposal_id)
 
         return VoteResponseSchema(
+            id=vote.id,
             proposal_id=vote.proposal_id,
             user_id=vote.user_id,
             value=vote.value,
@@ -89,13 +93,7 @@ def start_proposal(proposal_id, data: StartProposalSchema):
         service = ProposalService(session)
         proposal = service.start_voting(proposal_id=proposal_id, author_id=data.author_id)
 
-        return ProposalResponseSchema(
-            id=proposal.id,
-            title=proposal.title,
-            description=proposal.description,
-            author_id=proposal.author_id,
-            status=proposal.status
-        )
+        return proposal_response_schema(proposal)
     finally:
         session.close()
 
@@ -108,12 +106,18 @@ def finish_proposal(proposal_id, data: FinishProposalSchema):
         service = ProposalService(session)
         proposal = service.manual_finish(proposal_id=proposal_id, author_id=data.author_id)
 
-        return ProposalResponseSchema(
-            id=proposal.id,
-            title=proposal.title,
-            description=proposal.description,
-            author_id=proposal.author_id,
-            status=proposal.status
-        )
+        return proposal_response_schema(proposal)
+    finally:
+        session.close()
+
+@router.get("/proposals/{proposal_id}/votes", response_model=ProposalResponseSchema)
+def get_proposal_with_votes(proposal_id):
+    session = SessionLocal()
+
+    try:
+        service = ProposalService(session)
+        proposal = service.get_proposal_with_votes(proposal_id=proposal_id)
+
+        return proposal_response_schema(proposal, votes=proposal.votes)
     finally:
         session.close()
