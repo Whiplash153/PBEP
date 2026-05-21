@@ -22,6 +22,13 @@ class ProposalResponseSchema(BaseModel):
     deadline: datetime | None = None
     votes: list[VoteResponseSchema] | None = None
 
+class UpdateProposalSchema(BaseModel):
+
+    author_id: int
+    title: str | None = Field(None, min_length=2, max_length=50)
+    description: str | None = Field(None, min_length=2, max_length=500)
+    deadline: datetime | None = None
+
 class ProposalResultSchema(BaseModel):
 
     status: ProposalStatus
@@ -31,5 +38,9 @@ class StartProposalSchema(BaseModel):
     author_id: int
 
 class FinishProposalSchema(BaseModel):
+
+    author_id: int
+
+class DeleteProposalSchema(BaseModel):
 
     author_id: int
