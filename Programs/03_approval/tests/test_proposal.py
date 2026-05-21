@@ -18,26 +18,37 @@ from app.core.errors import (
     ProposalNotFoundError
 )
 
-def test_create_user(session):
+# ===== HELPERS =====
+# ===================
 
-    #SETUP
-    user = User()
-    user.name = "Henry"
-    user.email = "test@test.com"
+def _create_one_user(session):
 
-    session.add(user)
+    user1 = User()
+    user1.name = "A"
+    user1.email = "a@test.com"
+
+    session.add(user1)
     session.commit()
 
-    #TEST
-    user_repo = UserRepo(session)
-    the_user = user_repo.get_by_id(user.id)
+    return user1
 
-    assert the_user.name == "Henry"
-    assert the_user.email == "test@test.com"
+def _create_two_users(session):
 
-def test_create_proposal(session):
+    user1 = User()
+    user1.name = "A"
+    user1.email = "a@test.com"
 
-    #SETUP
+    user2 = User()
+    user2.name = "B"
+    user2.email = "b@test.com"
+
+    session.add_all([user1, user2])
+    session.commit()
+
+    return user1, user2
+
+def _create_three_users(session):
+
     user1 = User()
     user1.name = "A"
     user1.email = "a@test.com"
@@ -53,68 +64,15 @@ def test_create_proposal(session):
     session.add_all([user1, user2, user3])
     session.commit()
 
-    #TEST
-    service = ProposalService(session)
-    proposal = service.create_proposal("proposal_test", "good", user1.id,
-                            [user1.id, user2.id, user3.id])
+    return user1, user2, user3
 
-    assert proposal.title == "proposal_test"
-    assert proposal.description == "good"
-    assert proposal.author_id == user1.id
-    assert proposal.status == ProposalStatus.DRAFT
-
-    actual_ids = [participant.user_id for participant in proposal.participants]
-    expected_ids = [user1.id, user2.id, user3.id]
-    assert set(actual_ids) == set(expected_ids)
-
-def test_proposal_duplicate_error(session):
-
-    #SETUP
-    user1 = User()
-    user1.name = "A"
-    user1.email = "a@test.com"
-
-    user2 = User()
-    user2.name = "B"
-    user2.email = "b@test.com"
-
-    session.add_all([user1, user2])
-    session.commit()
-
-    #TEST
-    service = ProposalService(session)
-    with pytest.raises(DuplicateParticipantsError):
-        service.create_proposal("proposal_test", "good", user1.id,
-                                [user1.id, user2.id, user2.id])
-
-def test_proposal_participants_empty(session):
-
-    #SETUP
-    user1 = User()
-    user1.name = "A"
-    user1.email = "a@test.com"
-
-    session.add(user1)
-    session.commit()
-
-    #TEST
-    service = ProposalService(session)
-    with pytest.raises(EmptyParticipantsError):
-        service.create_proposal("proposal_test", "good", user1.id,[])
+# ==== VOTE TESTS ====
+# ====================
 
 def test_create_vote(session):
 
     #SETUP USERS
-    user1 = User()
-    user1.name = "A"
-    user1.email = "a@test.com"
-
-    user2 = User()
-    user2.name = "B"
-    user2.email = "b@test.com"
-
-    session.add_all([user1, user2])
-    session.commit()
+    user1, user2 = _create_two_users(session)
 
     #SETUP PROPOSAL
     service = ProposalService(session)
@@ -136,16 +94,7 @@ def test_create_vote(session):
 def test_create_vote_duplicate(session):
 
     #SETUP USERS
-    user1 = User()
-    user1.name = "A"
-    user1.email = "a@test.com"
-
-    user2 = User()
-    user2.name = "B"
-    user2.email = "b@test.com"
-
-    session.add_all([user1, user2])
-    session.commit()
+    user1, user2 = _create_two_users(session)
 
     #SETUP PROPOSAL
     service = ProposalService(session)
@@ -162,16 +111,7 @@ def test_create_vote_duplicate(session):
 def test_create_vote_not_participant(session):
 
     #SETUP USERS
-    user1 = User()
-    user1.name = "A"
-    user1.email = "a@test.com"
-
-    user2 = User()
-    user2.name = "B"
-    user2.email = "b@test.com"
-
-    session.add_all([user1, user2])
-    session.commit()
+    user1, user2 = _create_two_users(session)
 
     #SETUP PROPOSAL
     service = ProposalService(session)
@@ -187,16 +127,7 @@ def test_create_vote_not_participant(session):
 def test_create_vote_invalid_status(session):
 
     #SETUP USERS
-    user1 = User()
-    user1.name = "A"
-    user1.email = "a@test.com"
-
-    user2 = User()
-    user2.name = "B"
-    user2.email = "b@test.com"
-
-    session.add_all([user1, user2])
-    session.commit()
+    user1, user2 = _create_two_users(session)
 
     #SETUP PROPOSAL
     service = ProposalService(session)
@@ -207,19 +138,79 @@ def test_create_vote_invalid_status(session):
     with pytest.raises(InvalidProposalStatusError):
         service.create_vote(proposal.id, user2.id, "approve")
 
+# ==== PROPOSAL TESTS ====
+# ========================
+
+def test_create_user(session):
+
+    #SETUP
+    user = _create_one_user(session)
+
+    #TEST
+    user_repo = UserRepo(session)
+    the_user = user_repo.get_by_id(user.id)
+
+    assert the_user.name == "A"
+    assert the_user.email == "a@test.com"
+
+def test_create_proposal(session):
+
+    #SETUP
+    user1, user2, user3 = _create_three_users(session)
+
+    #TEST
+    service = ProposalService(session)
+    proposal = service.create_proposal("proposal_test", "good", user1.id,
+                            [user1.id, user2.id, user3.id])
+
+    assert proposal.title == "proposal_test"
+    assert proposal.description == "good"
+    assert proposal.author_id == user1.id
+    assert proposal.status == ProposalStatus.DRAFT
+
+    actual_ids = [participant.user_id for participant in proposal.participants]
+    expected_ids = [user1.id, user2.id, user3.id]
+    assert set(actual_ids) == set(expected_ids)
+
+def test_proposal_duplicate_error(session):
+
+    #SETUP
+    user1, user2 = _create_two_users(session)
+
+    #TEST
+    service = ProposalService(session)
+    with pytest.raises(DuplicateParticipantsError):
+        service.create_proposal("proposal_test", "good", user1.id,
+                                [user1.id, user2.id, user2.id])
+
+def test_proposal_participants_empty(session):
+
+    #SETUP
+    user = _create_one_user(session)
+
+    #TEST
+    service = ProposalService(session)
+    with pytest.raises(EmptyParticipantsError):
+        service.create_proposal("proposal_test", "good", user.id,[])
+
+def test_proposal_not_found(session):
+
+    #SETUP USERS
+    user1, user2 = _create_two_users(session)
+
+    service = ProposalService(session)
+
+    #TEST
+    with pytest.raises(ProposalNotFoundError):
+        service.create_vote(999, user1.id, "reject")
+
+# ===== FINISH TESTS =====
+# ========================
+
 def test_auto_finish_proposal(session):
 
     #SETUP USERS
-    user1 = User()
-    user1.name = "A"
-    user1.email = "a@test.com"
-
-    user2 = User()
-    user2.name = "B"
-    user2.email = "b@test.com"
-
-    session.add_all([user1, user2])
-    session.commit()
+    user1, user2 = _create_two_users(session)
 
     #SETUP PROPOSAL
     service = ProposalService(session)
@@ -240,16 +231,7 @@ def test_auto_finish_proposal(session):
 def test_auto_finish_rejected(session):
 
     #SETUP USERS
-    user1 = User()
-    user1.name = "A"
-    user1.email = "a@test.com"
-
-    user2 = User()
-    user2.name = "B"
-    user2.email = "b@test.com"
-
-    session.add_all([user1, user2])
-    session.commit()
+    user1, user2 = _create_two_users(session)
 
     #SETUP PROPOSAL
     service = ProposalService(session)
@@ -267,25 +249,17 @@ def test_auto_finish_rejected(session):
 
     assert the_proposal.status == ProposalStatus.REJECTED
 
-def test_proposal_not_found(session):
+# ===== UPDATE TESTS =====
+# ========================
 
-    #SETUP USERS
-    user1 = User()
-    user1.name = "A"
-    user1.email = "a@test.com"
+# ===== DELETE TESTS =====
+# ========================
 
-    user2 = User()
-    user2.name = "B"
-    user2.email = "b@test.com"
+# ===== REVOTE TESTS =====
+# ========================
 
-    session.add_all([user1, user2])
-    session.commit()
-
-    service = ProposalService(session)
-
-    #TEST
-    with pytest.raises(ProposalNotFoundError):
-        service.create_vote(999, user1.id, "reject")
+# ===== DEADLINE TESTS =====
+# ==========================
 
 
 

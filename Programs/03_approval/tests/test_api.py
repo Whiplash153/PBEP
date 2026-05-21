@@ -6,7 +6,9 @@ from app.models import Vote, Proposal, Participant, AuditLog
 
 client = TestClient(app)
 
-#CLEAR DB
+# ==== HELPERS ====
+# =================
+
 def _clear_db():
     session = SessionLocal()
     session.query(AuditLog).delete()
@@ -15,6 +17,8 @@ def _clear_db():
     session.query(Proposal).delete()
     session.commit()
     session.close()
+
+
 
 def test_create_proposal():
 
