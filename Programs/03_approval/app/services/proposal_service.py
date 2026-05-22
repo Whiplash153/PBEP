@@ -56,7 +56,7 @@ class ProposalService:
 
         #DEADLINE CHECK
         if proposal.deadline:
-            if datetime.now(timezone.utc) > proposal.deadline:
+            if datetime.utcnow() > proposal.deadline:
                 self._finish_proposal(proposal.id, action="auto_finish(deadline)")
                 return
 
@@ -104,10 +104,11 @@ class ProposalService:
     def _status_changer(self, proposal, new_status):
 
         allowed_transitions = {
-            ProposalStatus.DRAFT: [ProposalStatus.VOTING],
-            ProposalStatus.VOTING: [ProposalStatus.APPROVED, ProposalStatus.REJECTED],
-            ProposalStatus.APPROVED: [],
-            ProposalStatus.REJECTED: [],
+            ProposalStatus.DRAFT: [ProposalStatus.VOTING, ProposalStatus.DELETED],
+            ProposalStatus.VOTING: [ProposalStatus.APPROVED, ProposalStatus.REJECTED, ProposalStatus.DELETED],
+            ProposalStatus.APPROVED: [ProposalStatus.DELETED],
+            ProposalStatus.REJECTED: [ProposalStatus.DELETED],
+            ProposalStatus.DELETED: [],
         }
 
         current_status = proposal.status
@@ -120,7 +121,7 @@ class ProposalService:
 # ======= PROPOSAL LIFECYCLE ========
 # ===================================
 
-    def create_proposal(self, title, description, author_id, participant_ids):
+    def create_proposal(self, title, description, author_id, participant_ids, deadline = None):
 
         #AUTHOR CHECK
         author = self.user_repo.get_by_id(author_id)
@@ -146,7 +147,8 @@ class ProposalService:
             title=title,
             description=description,
             author_id=author_id,
-            status=ProposalStatus.DRAFT
+            status=ProposalStatus.DRAFT,
+            deadline=deadline
         )
 
         #ADD PROPOSAL
@@ -216,12 +218,8 @@ class ProposalService:
         if proposal.author_id != author_id:
             raise NotAuthorError
 
-        #STATUS CHECK
-        if proposal.status != ProposalStatus.DRAFT:
-            raise InvalidProposalStatusError
-
-        #DELETE
-        self.proposal_repo.delete(proposal)
+        #DELETE (+STATUS CHECK)
+        self._status_changer(proposal, ProposalStatus.DELETED)
 
         #LOG
         self._log_action(
@@ -322,6 +320,10 @@ class ProposalService:
         if proposal.status != ProposalStatus.VOTING:
             raise InvalidProposalStatusError
 
+        # DEADLINE CHECK
+        if proposal.deadline and datetime.utcnow() > proposal.deadline:
+            raise InvalidProposalStatusError
+
         # CHANGE VOTE
         existing_vote.value = value
 
@@ -359,6 +361,10 @@ class ProposalService:
 
         #STATUS CHECK
         if proposal.status != ProposalStatus.VOTING:
+            raise InvalidProposalStatusError
+
+        #DEADLINE CHECK
+        if proposal.deadline and datetime.utcnow() > proposal.deadline:
             raise InvalidProposalStatusError
 
         #CREATE VOTE

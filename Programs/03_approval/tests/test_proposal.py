@@ -1,5 +1,7 @@
 import pytest
 
+from datetime import datetime, timedelta, timezone
+
 from app.services.proposal_service import ProposalService
 from app.models.user import User
 
@@ -15,7 +17,8 @@ from app.core.errors import (
     AlreadyVotedError,
     NotParticipantError,
     InvalidProposalStatusError,
-    ProposalNotFoundError
+    ProposalNotFoundError,
+    VoteNotFoundError
 )
 
 # ===== HELPERS =====
@@ -138,6 +141,63 @@ def test_create_vote_invalid_status(session):
     with pytest.raises(InvalidProposalStatusError):
         service.create_vote(proposal.id, user2.id, "approve")
 
+def test_change_vote(session):
+
+    #SETUP USERS
+    user1, user2 = _create_two_users(session)
+
+    #SETUP PROPOSAL
+    service = ProposalService(session)
+    proposal = service.create_proposal("open window", "yo", user1.id,
+                                       [user1.id, user2.id])
+
+    service.start_voting(proposal.id, user1.id)
+
+    #TEST
+    service.create_vote(proposal.id, user1.id, "approve")
+    service.change_vote(proposal.id, user1.id, "reject")
+
+    vote_repo = VoteRepo(session)
+    the_vote = vote_repo.get_by_user_and_proposal(user_id=user1.id, proposal_id=proposal.id)
+
+    assert the_vote.user_id == user1.id
+    assert the_vote.proposal_id == proposal.id
+    assert the_vote.value == "reject"
+
+def test_change_vote_not_found(session):
+
+    #SETUP USERS
+    user1, user2 = _create_two_users(session)
+
+    #SETUP PROPOSAL
+    service = ProposalService(session)
+    proposal = service.create_proposal("open window", "yo", user1.id,
+                                       [user1.id, user2.id])
+
+    #TEST
+    with pytest.raises(VoteNotFoundError):
+        service.change_vote(proposal.id, user2.id, "approve")
+
+def test_change_vote_invalid_status(session):
+
+    #SETUP USERS
+    user1, user2 = _create_two_users(session)
+
+    #SETUP PROPOSAL
+    service = ProposalService(session)
+    proposal = service.create_proposal("open window", "yo", user1.id,
+                                       [user1.id, user2.id])
+
+    service.start_voting(proposal.id, user1.id)
+
+    #TEST
+    service.create_vote(proposal.id, user1.id, "approve")
+    service.create_vote(proposal.id, user2.id, "approve")
+
+    #TEST
+    with pytest.raises(InvalidProposalStatusError):
+        service.change_vote(proposal.id, user1.id, "reject")
+
 # ==== PROPOSAL TESTS ====
 # ========================
 
@@ -204,6 +264,87 @@ def test_proposal_not_found(session):
     with pytest.raises(ProposalNotFoundError):
         service.create_vote(999, user1.id, "reject")
 
+def test_update_draft_proposal(session):
+
+    #SETUP
+    user1, user2, user3 = _create_three_users(session)
+
+    #SETUP PROPOSAL
+    service = ProposalService(session)
+    proposal = service.create_proposal("proposal_test", "good", user1.id,
+                            [user1.id, user2.id, user3.id])
+
+    assert proposal.title == "proposal_test"
+    assert proposal.description == "good"
+    assert proposal.author_id == user1.id
+    assert proposal.status == ProposalStatus.DRAFT
+
+    service.update_proposal(proposal.id, user1.id, title="proposal_test2")
+
+    assert proposal.title == "proposal_test2"
+    assert proposal.description == "good"
+    assert proposal.author_id == user1.id
+    assert proposal.status == ProposalStatus.DRAFT
+
+def test_update_voting_proposal(session):
+
+    #SETUP USERS
+    user1, user2 = _create_two_users(session)
+
+    #SETUP PROPOSAL
+    service = ProposalService(session)
+    proposal = service.create_proposal("open window", "yo", user1.id,
+                                       [user1.id, user2.id])
+
+    #TEST
+    service.start_voting(proposal.id, user1.id)
+
+    with pytest.raises(InvalidProposalStatusError):
+        service.update_proposal(proposal.id, user1.id, title="proposal_test2")
+
+def test_delete_draft_proposal(session):
+
+    #SETUP
+    user1, user2, user3 = _create_three_users(session)
+
+    #SETUP PROPOSAL
+    service = ProposalService(session)
+    proposal = service.create_proposal("proposal_test", "good", user1.id,
+                            [user1.id, user2.id, user3.id])
+
+    assert proposal.title == "proposal_test"
+    assert proposal.description == "good"
+    assert proposal.author_id == user1.id
+    assert proposal.status == ProposalStatus.DRAFT
+
+    service.delete_proposal(proposal.id, user1.id)
+
+    with pytest.raises(ProposalNotFoundError):
+        service.get_proposal(proposal.id)
+
+def test_delete_approved_proposal(session):
+
+    #SETUP USERS
+    user1, user2 = _create_two_users(session)
+
+    #SETUP PROPOSAL
+    service = ProposalService(session)
+    proposal = service.create_proposal("open window", "yo", user1.id,
+                                       [user1.id, user2.id])
+
+    #TEST
+    service.start_voting(proposal.id, user1.id)
+
+    service.create_vote(proposal.id, user1.id, "approve")
+    service.create_vote(proposal.id, user2.id, "approve")
+
+    assert proposal.status == ProposalStatus.APPROVED
+
+    service.delete_proposal(proposal.id, user1.id)
+
+    with pytest.raises(ProposalNotFoundError):
+        service.get_proposal(proposal.id)
+
 # ===== FINISH TESTS =====
 # ========================
 
@@ -249,17 +390,85 @@ def test_auto_finish_rejected(session):
 
     assert the_proposal.status == ProposalStatus.REJECTED
 
-# ===== UPDATE TESTS =====
-# ========================
+def test_manual_finish_proposal(session):
 
-# ===== DELETE TESTS =====
-# ========================
+    #SETUP USERS
+    user1, user2 = _create_two_users(session)
 
-# ===== REVOTE TESTS =====
-# ========================
+    #SETUP PROPOSAL
+    service = ProposalService(session)
+    proposal = service.create_proposal("open window", "yo", user1.id,
+                                       [user1.id, user2.id])
+
+    service.start_voting(proposal.id, user1.id)
+
+    #START TEST
+    service.create_vote(proposal.id, user1.id, "reject")
+
+    proposal_repo = ProposalRepo(session)
+    the_proposal = proposal_repo.get_by_id(proposal_id=proposal.id)
+
+    assert the_proposal.status == ProposalStatus.VOTING
+
+    #MANUAL FINISH
+    service.manual_finish(the_proposal.id, user1.id)
+
+    proposal_repo = ProposalRepo(session)
+    the_proposal_2 = proposal_repo.get_by_id(proposal_id=proposal.id)
+
+    assert the_proposal_2.status == ProposalStatus.REJECTED
+
+def test_manual_finish_invalid_status(session):
+
+    #SETUP USERS
+    user1, user2 = _create_two_users(session)
+
+    #SETUP PROPOSAL
+    service = ProposalService(session)
+    proposal = service.create_proposal("open window", "yo", user1.id,
+                                       [user1.id, user2.id])
+
+    service.start_voting(proposal.id, user1.id)
+
+    #START TEST
+    service.create_vote(proposal.id, user1.id, "reject")
+    service.create_vote(proposal.id, user2.id, "reject")
+
+    proposal_repo = ProposalRepo(session)
+    the_proposal = proposal_repo.get_by_id(proposal_id=proposal.id)
+
+    assert the_proposal.status == ProposalStatus.REJECTED
+
+    #MANUAL FINISH
+
+    with pytest.raises(InvalidProposalStatusError):
+        service.manual_finish(the_proposal.id, user1.id)
 
 # ===== DEADLINE TESTS =====
 # ==========================
+
+def test_deadline_auto_finish(session):
+
+    #SETUP USERS
+    user1, user2 = _create_two_users(session)
+
+    #SETUP EXPIRED PROPOSAL
+    service = ProposalService(session)
+    proposal = service.create_proposal("open window",
+                                       "yo",
+                                       user1.id,
+                                       [user1.id, user2.id],
+                                       deadline=datetime.utcnow() - timedelta(minutes=1))
+
+    service.start_voting(proposal.id, user1.id)
+
+    assert proposal.status == ProposalStatus.VOTING
+
+    #START TEST
+    with pytest.raises(InvalidProposalStatusError):
+        service.create_vote(proposal.id, user1.id, "approve")
+
+
 
 
 

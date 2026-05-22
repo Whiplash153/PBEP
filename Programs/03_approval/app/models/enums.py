@@ -5,3 +5,4 @@ class ProposalStatus(Enum):
     VOTING = "voting"
     APPROVED = "approved"
     REJECTED = "rejected"
+    DELETED = "deleted"
