@@ -2,7 +2,7 @@ from app.main import app
 from fastapi.testclient import TestClient
 
 from tests.reserve_db_session import SessionLocal
-from app.models import Vote, Proposal, Participant, AuditLog
+from app.models import Vote, Proposal, Participant, AuditLog, User
 
 client = TestClient(app)
 
@@ -11,10 +11,12 @@ client = TestClient(app)
 
 def _clear_db():
     session = SessionLocal()
+
     session.query(AuditLog).delete()
     session.query(Vote).delete()
     session.query(Participant).delete()
     session.query(Proposal).delete()
+
     session.commit()
     session.close()
 
