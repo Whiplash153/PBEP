@@ -1,16 +1,30 @@
 from app.main import app
+from app.db.session import get_db
+from app.models import Vote, Proposal, Participant, AuditLog
+
+from tests.reserve_db_session import SessionLocal as TestSessionLocal
+
 from fastapi.testclient import TestClient
 
-from tests.reserve_db_session import SessionLocal
-from app.models import Vote, Proposal, Participant, AuditLog, User
-
 client = TestClient(app)
+
+# ==== GET TEST DB ====
+# =====================
+
+def override_get_db():
+    db = TestSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+app.dependency_overrides[get_db] = override_get_db
 
 # ==== HELPERS ====
 # =================
 
 def _clear_db():
-    session = SessionLocal()
+    session = TestSessionLocal()
 
     session.query(AuditLog).delete()
     session.query(Vote).delete()
@@ -19,6 +33,9 @@ def _clear_db():
 
     session.commit()
     session.close()
+
+# ==== TESTS ====
+# ===============
 
 def test_create_proposal():
 
