@@ -34,15 +34,9 @@ def _clear_db():
     session.commit()
     session.close()
 
-# ==== TESTS ====
-# ===============
+def _create_proposal():
 
-def test_create_proposal():
-
-    #CLEAR DB
-    _clear_db()
-
-    #DATA TO SEND
+    # === SETUP PROPOSAL (PAYLOAD) ===
     payload = {
         "title": "Test proposal",
         "description": "Test description",
@@ -53,11 +47,37 @@ def test_create_proposal():
     #HTTP-REQUEST
     response = client.post("/proposals", json=payload)
 
-    #STATUS CODE CHECK
-    assert response.status_code == 200
+    #GET RESPONSE
+    data = response.json()
+
+    return response, data, payload
+
+def _start_voting(proposal_id):
+
+    #PAYLOAD
+    payload = {"author_id": 1}
+
+    #HTTP-REQUEST
+    response = client.post(f"/proposals/{proposal_id}/start", json=payload)
 
     #GET RESPONSE
     data = response.json()
+
+    return response, data
+
+# ==== PROPOSAL TESTS ====
+# ========================
+
+def test_create_proposal():
+
+    #CLEAR DB
+    _clear_db()
+
+    #CREATE PROPOSAL
+    response, data, payload = _create_proposal()
+
+    #STATUS CODE CHECK
+    assert response.status_code == 200
 
     #RESPONSE DETAILS CHECK
     assert "id" in data
@@ -73,7 +93,7 @@ def test_empty_participants():
     #CLEAR DB
     _clear_db()
 
-    #DATA TO SEND
+    # === UNUSUAL SETUP PROPOSAL ===
     payload = {
         "title": "Test proposal",
         "description": "Test description",
@@ -84,11 +104,11 @@ def test_empty_participants():
     #HTTP-REQUEST
     response = client.post("/proposals", json=payload)
 
-    #STATUS CODE CHECK
-    assert response.status_code == 400
-
     #GET RESPONSE
     data = response.json()
+
+    #STATUS CODE CHECK
+    assert response.status_code == 400
 
     #RESPONSE DETAILS CHECK
     assert data["detail"] == "Participants list is empty"
@@ -98,7 +118,7 @@ def test_duplicate_participants():
     #CLEAR DB
     _clear_db()
 
-    #DATA TO SEND
+    # === UNUSUAL SETUP PROPOSAL ===
     payload = {
         "title": "Test proposal",
         "description": "Test description",
@@ -109,11 +129,12 @@ def test_duplicate_participants():
     #HTTP-REQUEST
     response = client.post("/proposals", json=payload)
 
-    #STATUS CODE CHECK
-    assert response.status_code == 400
-
     #GET RESPONSE
     data = response.json()
+
+
+    #STATUS CODE CHECK
+    assert response.status_code == 400
 
     #RESPONSE DETAILS CHECK
     assert data["detail"] == "Duplicate participants"
@@ -123,7 +144,7 @@ def test_user_not_found():
     #CLEAR DB
     _clear_db()
 
-    #DATA TO SEND
+    # === SETUP PROPOSAL (PAYLOAD) ===
     payload = {
         "title": "Test proposal",
         "description": "Test description",
@@ -134,34 +155,203 @@ def test_user_not_found():
     #HTTP-REQUEST
     response = client.post("/proposals", json=payload)
 
-    #STATUS CODE CHECK
-    assert response.status_code == 404
-
     #GET RESPONSE
     data = response.json()
+
+    #STATUS CODE CHECK
+    assert response.status_code == 404
 
     #RESPONSE DETAILS CHECK
     assert data["detail"] == "User not found"
 
-def test_already_voted():
+def test_update_proposal():
 
     #CLEAR DB
     _clear_db()
 
-    #DATA TO SEND
-    payload = {
-        "title": "Test proposal",
-        "description": "Test description",
+    #CREATE PROPOSAL
+    response, data, payload = _create_proposal()
+
+    #STATUS CODE CHECK
+    assert response.status_code == 200
+
+    #STATUS CHECK
+    assert data["status"] == "draft"
+
+    #FIND PROPOSAL ID
+    proposal_id = data["id"]
+
+    # === UPDATE PROPOSAL ===
+    payload_2 = {
         "author_id": 1,
-        "participant_ids": [1, 2]
+        "title": "UPD",
+        "description": "upd"
     }
 
-    #MAKING PROPOSAL
-    proposal_response = client.post("/proposals", json=payload)
-    proposal_id = proposal_response.json()["id"]
+    #HTTP-REQUEST
+    response_2 = client.patch(f"/proposals/{proposal_id}", json=payload_2)
+
+    #GET RESPONSE
+    data_2 = response_2.json()
+
+    #STATUS CODE CHECK
+    assert response_2.status_code == 200
+
+    #RESPONSE DETAILS CHECK
+    assert "id" in data
+    assert data_2["title"] == payload_2["title"]
+    assert data_2["description"] == payload_2["description"]
+
+def test_update_non_draft_proposal():
+
+    #CLEAR DB
+    _clear_db()
+
+    #CREATE PROPOSAL
+    response, data, payload = _create_proposal()
+
+    #FIND PROPOSAL ID
+    proposal_id = data["id"]
 
     #START VOTING
-    client.post(f"/proposals/{proposal_id}/start", json={"author_id": 1})
+    response, data = _start_voting(proposal_id)
+
+    #STATUS CHECK
+    assert data["status"] == "voting"
+
+    # === UPDATE PROPOSAL ===
+    payload = {
+        "author_id": 1,
+        "title": "UPD",
+        "description": "upd"
+    }
+
+    #HTTP-REQUEST
+    response = client.patch(f"/proposals/{proposal_id}", json=payload)
+
+    #GET RESPONSE
+    data_2 = response.json()
+
+    #STATUS CODE CHECK
+    assert response.status_code == 409
+
+    #RESPONSE DETAILS CHECK
+    assert data_2["detail"] == "Proposal in a wrong state"
+
+def test_delete_already_deleted_proposal():
+
+    #CLEAR DB
+    _clear_db()
+
+    #CREATE PROPOSAL
+    response, data, payload = _create_proposal()
+
+    #FIND PROPOSAL ID
+    proposal_id = data["id"]
+
+    #START VOTING
+    response, data = _start_voting(proposal_id)
+
+    #STATUS CHECK
+    assert data["status"] == "voting"
+
+    # === DELETE PROPOSAL ===
+    payload_2 = {"author_id": 1}
+
+    #HTTP-REQUEST
+    response_2 = client.request("DELETE", f"/proposals/{proposal_id}", json=payload_2)
+
+    #GET RESPONSE
+    data_2 = response_2.json()
+
+    #STATUS CHECK
+    assert data_2["status"] == "deleted"
+
+    # === AGAIN DELETE PROPOSAL ===
+    payload_3 = {"author_id": 1}
+
+    #HTTP-REQUEST
+    response_3 = client.request("DELETE", f"/proposals/{proposal_id}", json=payload_3)
+
+    #GET RESPONSE
+    data_3 = response_3.json()
+
+    #STATUS CODE CHECK
+    assert response_3.status_code == 404
+
+    #RESPONSE DETAILS CHECK
+    assert data_3["detail"] == "Proposal not found"
+
+def test_start_by_non_author():
+
+    #CLEAR DB
+    _clear_db()
+
+    #CREATE PROPOSAL
+    response, data, payload = _create_proposal()
+
+    #FIND PROPOSAL ID
+    proposal_id = data["id"]
+
+    # === START VOTING (NON AUTHOR) ===
+
+    #PAYLOAD
+    payload_2 = {"author_id": 2}
+
+    #HTTP-REQUEST
+    response_2 = client.post(f"/proposals/{proposal_id}/start", json=payload_2)
+
+    #GET RESPONSE
+    data_2 = response_2.json()
+
+    #STATUS CODE CHECK
+    assert response_2.status_code == 403
+
+    #RESPONSE DETAILS CHECK
+    assert data_2["detail"] == "Only author can perform this action"
+
+def test_start_invalid_status():
+
+    #CLEAR DB
+    _clear_db()
+
+    #CREATE PROPOSAL
+    response, data, payload = _create_proposal()
+
+    #FIND PROPOSAL ID
+    proposal_id = data["id"]
+
+    #START VOTING
+    response, data = _start_voting(proposal_id)
+
+    #STATUS CHECK
+    assert data["status"] == "voting"
+
+    # === AGAIN START VOTING ===
+    response_2, data_2 = _start_voting(proposal_id)
+
+    #STATUS CODE CHECK
+    assert response_2.status_code == 409
+
+    #RESPONSE DETAILS CHECK
+    assert data_2["detail"] == "Proposal in a wrong state"
+
+# ==== VOTE TESTS ====
+# ====================
+
+def test_duplicate_vote():
+
+    #CLEAR DB
+    _clear_db()
+
+    #CREATE PROPOSAL
+    response, data, payload = _create_proposal()
+
+    #FIND PROPOSAL ID
+    proposal_id = data["id"]
+
+    #START VOTING
+    response, data = _start_voting(proposal_id)
 
     #1st VOTE (GOOD)
     vote_payload = {
@@ -185,20 +375,14 @@ def test_not_participant():
     #CLEAR DB
     _clear_db()
 
-    #DATA TO SEND
-    payload = {
-        "title": "Test proposal",
-        "description": "Test description",
-        "author_id": 1,
-        "participant_ids": [1, 2]
-    }
+    #CREATE PROPOSAL
+    response, data, payload = _create_proposal()
 
-    #MAKING PROPOSAL
-    proposal_response = client.post("/proposals", json=payload)
-    proposal_id = proposal_response.json()["id"]
+    #FIND PROPOSAL ID
+    proposal_id = data["id"]
 
     #START VOTING
-    client.post(f"/proposals/{proposal_id}/start", json={"author_id": 1})
+    response, data = _start_voting(proposal_id)
 
     #VOTE
     vote_payload = {
@@ -218,20 +402,17 @@ def test_vote_after_finish():
     #CLEAR DB
     _clear_db()
 
-    #DATA TO SEND
-    payload = {
-        "title": "Test proposal",
-        "description": "Test description",
-        "author_id": 1,
-        "participant_ids": [1, 2]
-    }
+    #CREATE PROPOSAL
+    response, data, payload = _create_proposal()
 
-    #MAKING PROPOSAL
-    proposal_response = client.post("/proposals", json=payload)
-    proposal_id = proposal_response.json()["id"]
+    #FIND PROPOSAL ID
+    proposal_id = data["id"]
 
     #START VOTING
-    client.post(f"/proposals/{proposal_id}/start", json={"author_id": 1})
+    response, data = _start_voting(proposal_id)
+
+    #STATUS CHECK
+    assert data["status"] == "voting"
 
     #VOTE
     vote_payload_1 = {
@@ -257,3 +438,18 @@ def test_vote_after_finish():
 
     data = vote2.json()
     assert data["detail"] == "Proposal in a wrong state"
+
+# ==== FINISH TESTS ====
+# ====================
+
+
+
+# ==== READ TESTS ====
+# ====================
+
+
+
+# ==== AUDIT TESTS ====
+# ====================
+
+

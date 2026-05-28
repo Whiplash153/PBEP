@@ -8,14 +8,18 @@ from app.models.vote import Vote
 from app.models.participant import Participant
 from app.models.proposal import Proposal
 from app.models.user import User
+from app.models.audit import AuditLog
 
 #CLEAR DB
 def _clear_db():
     session = SessionLocal()
+
+    session.query(AuditLog).delete()
     session.query(Vote).delete()
     session.query(Participant).delete()
     session.query(Proposal).delete()
     session.query(User).delete()
+
     session.commit()
     session.close()
 
