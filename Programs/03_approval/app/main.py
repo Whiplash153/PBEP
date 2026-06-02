@@ -12,6 +12,7 @@ from app.core.errors import (
     InvalidVoteValueError,
     EmptyParticipantsError,
     DuplicateParticipantsError,
+    VoteNotFoundError
 )
 
 app = FastAPI()
@@ -79,4 +80,11 @@ async def duplicate_participants_handler(request: Request, exc: DuplicatePartici
     return JSONResponse(
         status_code=400,
         content={"detail": "Duplicate participants"}
+    )
+
+@app.exception_handler(VoteNotFoundError)
+async def vote_not_found_error_handler(request: Request, exc: VoteNotFoundError):
+    return JSONResponse(
+        status_code=404,
+        content={"detail": "Vote not found"}
     )

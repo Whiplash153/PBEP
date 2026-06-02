@@ -2,6 +2,8 @@ from app.main import app
 from app.db.session import get_db
 from app.models import Vote, Proposal, Participant, AuditLog
 
+from datetime import datetime, timedelta, timezone
+
 from tests.reserve_db_session import SessionLocal as TestSessionLocal
 
 from fastapi.testclient import TestClient
@@ -439,17 +441,407 @@ def test_vote_after_finish():
     data = vote2.json()
     assert data["detail"] == "Proposal in a wrong state"
 
+def test_revote():
+
+    #CLEAR DB
+    _clear_db()
+
+    #CREATE PROPOSAL
+    response, data, payload = _create_proposal()
+
+    #FIND PROPOSAL ID
+    proposal_id = data["id"]
+
+    #START VOTING
+    _start_voting(proposal_id)
+
+    #VOTE
+    vote_payload = {
+        "proposal_id": proposal_id,
+        "user_id": 1,
+        "value": "approve"
+    }
+
+    vote = client.post("/votes", json=vote_payload)
+    assert vote.status_code == 200
+
+    #REVOTE
+    vote_payload = {
+        "proposal_id": proposal_id,
+        "user_id": 1,
+        "value": "reject"
+    }
+
+    vote = client.patch("/votes", json=vote_payload)
+    assert vote.status_code == 200
+
+    response = client.get(f"/proposals/{proposal_id}/votes")
+    data = response.json()
+
+    #SEARCH FOR VOTER
+    votes = data["votes"]
+    found_vote = None
+
+    for vote in votes:
+        if vote["user_id"] == 1:
+            found_vote = vote
+
+    #VALUE CHECK
+    assert found_vote is not None
+    assert found_vote["value"] == "reject"
+
+def test_revote_without_vote_made():
+
+    # CLEAR DB
+    _clear_db()
+
+    # CREATE PROPOSAL
+    response, data, payload = _create_proposal()
+
+    # FIND PROPOSAL ID
+    proposal_id = data["id"]
+
+    # START VOTING
+    response, data = _start_voting(proposal_id)
+
+    # REVOTE
+    vote_payload = {
+        "proposal_id": proposal_id,
+        "user_id": 1,
+        "value": "reject"
+    }
+
+    vote = client.patch("/votes", json=vote_payload)
+    assert vote.status_code == 404
+
+    data = vote.json()
+    assert data["detail"] == "Vote not found"
+
+def test_revote_after_finish():
+
+    #CLEAR DB
+    _clear_db()
+
+    #CREATE PROPOSAL
+    response, data, payload = _create_proposal()
+
+    #FIND PROPOSAL ID
+    proposal_id = data["id"]
+
+    #START VOTING
+    _start_voting(proposal_id)
+
+    #VOTE_1
+    vote_payload = {
+        "proposal_id": proposal_id,
+        "user_id": 1,
+        "value": "approve"
+    }
+
+    vote = client.post("/votes", json=vote_payload)
+    assert vote.status_code == 200
+
+    #VOTE_2
+    vote_payload_2 = {
+        "proposal_id": proposal_id,
+        "user_id": 2,
+        "value": "approve"
+    }
+
+    vote_2 = client.post("/votes", json=vote_payload_2)
+    assert vote_2.status_code == 200
+
+    #FINISH CHECK
+    data = vote_2.json()
+    assert data["status"] == "approved"
+
+    #REVOTE
+    vote_payload = {
+        "proposal_id": proposal_id,
+        "user_id": 1,
+        "value": "reject"
+    }
+
+    vote = client.patch("/votes", json=vote_payload)
+    assert vote.status_code == 409
+
+    data = vote.json()
+    assert data["detail"] == "Proposal in a wrong state"
+
+def test_vote_after_deadline():
+
+    #CLEAR DB
+    _clear_db()
+
+    # === SETUP PROPOSAL (PAYLOAD) ===
+    payload = {
+        "title": "Test proposal",
+        "description": "Test description",
+        "author_id": 1,
+        "participant_ids": [1, 2],
+        "deadline": str(datetime.utcnow() - timedelta(minutes=1))
+    }
+
+    #HTTP-REQUEST
+    response = client.post("/proposals", json=payload)
+
+    #GET RESPONSE
+    data = response.json()
+
+    #STATUS CODE CHECK
+    assert response.status_code == 200
+
+    #DEADLINE GOT CHECK
+    assert data["deadline"] is not None
+
+    # FIND PROPOSAL ID
+    proposal_id = data["id"]
+
+    # START VOTING
+    response, data = _start_voting(proposal_id)
+
+    # VOTE
+    vote_payload = {
+        "proposal_id": proposal_id,
+        "user_id": 1,
+        "value": "approve"
+    }
+
+    vote = client.post("/votes", json=vote_payload)
+    assert vote.status_code == 409
+
+    data = vote.json()
+    assert data["detail"] == "Proposal in a wrong state"
+
 # ==== FINISH TESTS ====
-# ====================
+# ======================
 
+def test_manual_finish():
 
+    #CLEAR DB
+    _clear_db()
+
+    #CREATE PROPOSAL
+    response, data, payload = _create_proposal()
+
+    #FIND PROPOSAL ID
+    proposal_id = data["id"]
+
+    #START VOTING
+    response, data = _start_voting(proposal_id)
+
+    #STATUS CHECK
+    assert data["status"] == "voting"
+
+    #FINISH PROPOSAL
+    response_2 = client.post(f"/proposals/{proposal_id}/finish", json={"author_id": 1})
+
+    data_2 = response_2.json()
+
+    #TEST
+    assert response_2.status_code == 200
+    assert data_2["status"] == "rejected"
+
+def test_finish_by_non_author():
+
+    #CLEAR DB
+    _clear_db()
+
+    #CREATE PROPOSAL
+    response, data, payload = _create_proposal()
+
+    #FIND PROPOSAL ID
+    proposal_id = data["id"]
+
+    #START VOTING
+    response, data = _start_voting(proposal_id)
+
+    #STATUS CHECK
+    assert data["status"] == "voting"
+
+    #FINISH PROPOSAL
+    response_2 = client.post(f"/proposals/{proposal_id}/finish", json={"author_id": 2})
+
+    data_2 = response_2.json()
+
+    #TEST
+    assert response_2.status_code == 403
+    assert data_2["detail"] == "Only author can perform this action"
+
+def test_finish_already_finished():
+
+    #CLEAR DB
+    _clear_db()
+
+    #CREATE PROPOSAL
+    response, data, payload = _create_proposal()
+
+    #FIND PROPOSAL ID
+    proposal_id = data["id"]
+
+    #START VOTING
+    response, data = _start_voting(proposal_id)
+
+    #STATUS CHECK
+    assert data["status"] == "voting"
+
+    #FINISH PROPOSAL
+    response_2 = client.post(f"/proposals/{proposal_id}/finish", json={"author_id": 1})
+
+    data_2 = response_2.json()
+
+    #PROPOSAL FINISHED CHECK
+    assert response_2.status_code == 200
+    assert data_2["status"] == "rejected"
+
+    #FINISH PROPOSAL AGAIN
+    response_3 = client.post(f"/proposals/{proposal_id}/finish", json={"author_id": 1})
+
+    data_3 = response_3.json()
+
+    #PROPOSAL FINISHED CHECK
+    assert response_3.status_code == 409
+    assert data_3["detail"] == "Proposal in a wrong state"
 
 # ==== READ TESTS ====
 # ====================
 
+def test_get_proposal_result():
 
+    #CLEAR DB
+    _clear_db()
+
+    #CREATE PROPOSAL
+    response, data, payload = _create_proposal()
+
+    #FIND PROPOSAL ID
+    proposal_id = data["id"]
+
+    #START VOTING
+    _start_voting(proposal_id)
+
+    #VOTE_1
+    vote_payload = {
+        "proposal_id": proposal_id,
+        "user_id": 1,
+        "value": "approve"
+    }
+
+    vote = client.post("/votes", json=vote_payload)
+    assert vote.status_code == 200
+
+    #VOTE_2
+    vote_payload_2 = {
+        "proposal_id": proposal_id,
+        "user_id": 2,
+        "value": "approve"
+    }
+
+    vote_2 = client.post("/votes", json=vote_payload_2)
+    assert vote_2.status_code == 200
+
+    #GET PROPOSAL RESULTS
+    result = client.get(f"/proposals/{proposal_id}/result")
+    assert result.status_code == 200
+
+    result_data = result.json()
+
+    #STATUS CHECK
+    assert result_data["status"] == "approved"
+
+def test_get_proposal_votes():
+
+    #CLEAR DB
+    _clear_db()
+
+    #CREATE PROPOSAL
+    response, data, payload = _create_proposal()
+
+    #FIND PROPOSAL ID
+    proposal_id = data["id"]
+
+    #START VOTING
+    _start_voting(proposal_id)
+
+    #VOTE
+    vote_payload = {
+        "proposal_id": proposal_id,
+        "user_id": 1,
+        "value": "approve"
+    }
+
+    vote = client.post("/votes", json=vote_payload)
+    assert vote.status_code == 200
+
+    #GET VOTES
+    response = client.get(f"/proposals/{proposal_id}/votes")
+    votes_data = response.json()
+
+    #SEARCH FOR VOTER
+    votes = votes_data["votes"]
+    found_vote = None
+
+    for vote in votes:
+        if vote["user_id"] == 1:
+            found_vote = vote
+
+    #VALUE CHECK
+    assert found_vote is not None
+    assert found_vote["value"] == "approve"
 
 # ==== AUDIT TESTS ====
-# ====================
+# =====================
+
+def test_audit_log():
+
+    #CLEAR DB
+    _clear_db()
+
+    #CREATE PROPOSAL
+    response, data, payload = _create_proposal()
+
+    #FIND PROPOSAL ID
+    proposal_id = data["id"]
+
+    #START VOTING
+    _start_voting(proposal_id)
+
+    #VOTE_1
+    vote_payload = {
+        "proposal_id": proposal_id,
+        "user_id": 1,
+        "value": "approve"
+    }
+
+    vote = client.post("/votes", json=vote_payload)
+    assert vote.status_code == 200
+
+    #FINISH PROPOSAL
+    response_2 = client.post(f"/proposals/{proposal_id}/finish", json={"author_id": 1})
+    assert response_2.status_code == 200
+
+    result_data = response_2.json()
+    assert result_data["status"] == "approved"
+
+    # === AUDIT TEST (NEW SESSION) ===
+    session = TestSessionLocal()
+
+    #GET LOGS
+    logs = session.query(AuditLog).filter(AuditLog.proposal_id == proposal_id).all()
+
+    #GET ACTIONS
+    actions = [log.action for log in logs]
+
+    session.close()
+
+    #TEST
+    assert "create_proposal" in actions
+    assert "start_voting" in actions
+    assert "create_vote" in actions
+    assert "manual_finish" in actions
+
+
+
+
 
 

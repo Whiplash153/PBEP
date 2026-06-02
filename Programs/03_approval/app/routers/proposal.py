@@ -20,6 +20,20 @@ router = APIRouter()
 
 def proposal_response_schema(proposal, votes=None):
 
+    vote_schemas = None
+
+    if votes:
+        vote_schemas = [
+            VoteResponseSchema(
+                id=vote.id,
+                proposal_id=vote.proposal_id,
+                user_id=vote.user_id,
+                value=vote.value,
+                status=proposal.status
+            )
+            for vote in votes
+        ]
+
     return ProposalResponseSchema(
         id=proposal.id,
         title=proposal.title,
@@ -28,7 +42,7 @@ def proposal_response_schema(proposal, votes=None):
         status=proposal.status,
         created_at=proposal.created_at,
         deadline=proposal.deadline,
-        votes=votes
+        votes=vote_schemas
     )
 
 # ==== PROPOSAL READ ENDPOINTS ======
@@ -67,7 +81,8 @@ def get_proposal_with_votes(proposal_id, session = Depends(get_db)):
 def create_proposal(data: ProposalCreateSchema, session = Depends(get_db)):
 
     service = ProposalService(session)
-    proposal = service.create_proposal(data.title, data.description, data.author_id, data.participant_ids)
+    proposal = service.create_proposal(data.title, data.description,
+                                       data.author_id, data.participant_ids, data.deadline)
 
     return proposal_response_schema(proposal)
 
