@@ -1,6 +1,6 @@
 from app.main import app
 from app.db.session import get_db
-from app.models import Vote, Proposal, Participant, AuditLog
+from app.models import Vote, Proposal, Participant, AuditLog, User
 
 from datetime import datetime, timedelta, timezone
 
@@ -32,7 +32,40 @@ def _clear_db():
     session.query(Vote).delete()
     session.query(Participant).delete()
     session.query(Proposal).delete()
+    session.query(User).delete()
 
+    session.commit()
+    session.close()
+
+def _seed_users():
+    session = TestSessionLocal()
+
+    user1 = User()
+    user1.id = 1
+    user1.name = "Anna"
+    user1.email = "anna@test.com"
+
+    user2 = User()
+    user2.id = 2
+    user2.name = "Bruce"
+    user2.email = "bruce@test.com"
+
+    user3 = User()
+    user3.id = 3
+    user3.name = "Charlie"
+    user3.email = "charlie@test.com"
+
+    user4 = User()
+    user4.id = 4
+    user4.name = "Don"
+    user4.email = "don@test.com"
+
+    user5 = User()
+    user5.id = 5
+    user5.name = "Eddie"
+    user5.email = "eddie@test.com"
+
+    session.add_all([user1, user2, user3, user4, user5])
     session.commit()
     session.close()
 
@@ -75,6 +108,9 @@ def test_create_proposal():
     #CLEAR DB
     _clear_db()
 
+    #SEED USERS
+    _seed_users()
+
     #CREATE PROPOSAL
     response, data, payload = _create_proposal()
 
@@ -94,6 +130,9 @@ def test_empty_participants():
 
     #CLEAR DB
     _clear_db()
+
+    #SEED USERS
+    _seed_users()
 
     # === UNUSUAL SETUP PROPOSAL ===
     payload = {
@@ -119,6 +158,9 @@ def test_duplicate_participants():
 
     #CLEAR DB
     _clear_db()
+
+    #SEED USERS
+    _seed_users()
 
     # === UNUSUAL SETUP PROPOSAL ===
     payload = {
@@ -146,6 +188,9 @@ def test_user_not_found():
     #CLEAR DB
     _clear_db()
 
+    #SEED USERS
+    _seed_users()
+
     # === SETUP PROPOSAL (PAYLOAD) ===
     payload = {
         "title": "Test proposal",
@@ -170,6 +215,9 @@ def test_update_proposal():
 
     #CLEAR DB
     _clear_db()
+
+    #SEED USERS
+    _seed_users()
 
     #CREATE PROPOSAL
     response, data, payload = _create_proposal()
@@ -209,6 +257,9 @@ def test_update_non_draft_proposal():
     #CLEAR DB
     _clear_db()
 
+    #SEED USERS
+    _seed_users()
+
     #CREATE PROPOSAL
     response, data, payload = _create_proposal()
 
@@ -244,6 +295,9 @@ def test_delete_already_deleted_proposal():
 
     #CLEAR DB
     _clear_db()
+
+    #SEED USERS
+    _seed_users()
 
     #CREATE PROPOSAL
     response, data, payload = _create_proposal()
@@ -289,6 +343,9 @@ def test_start_by_non_author():
     #CLEAR DB
     _clear_db()
 
+    #SEED USERS
+    _seed_users()
+
     #CREATE PROPOSAL
     response, data, payload = _create_proposal()
 
@@ -316,6 +373,9 @@ def test_start_invalid_status():
 
     #CLEAR DB
     _clear_db()
+
+    #SEED USERS
+    _seed_users()
 
     #CREATE PROPOSAL
     response, data, payload = _create_proposal()
@@ -345,6 +405,9 @@ def test_duplicate_vote():
 
     #CLEAR DB
     _clear_db()
+
+    #SEED USERS
+    _seed_users()
 
     #CREATE PROPOSAL
     response, data, payload = _create_proposal()
@@ -377,6 +440,9 @@ def test_not_participant():
     #CLEAR DB
     _clear_db()
 
+    #SEED USERS
+    _seed_users()
+
     #CREATE PROPOSAL
     response, data, payload = _create_proposal()
 
@@ -403,6 +469,9 @@ def test_vote_after_finish():
 
     #CLEAR DB
     _clear_db()
+
+    #SEED USERS
+    _seed_users()
 
     #CREATE PROPOSAL
     response, data, payload = _create_proposal()
@@ -445,6 +514,9 @@ def test_revote():
 
     #CLEAR DB
     _clear_db()
+
+    #SEED USERS
+    _seed_users()
 
     #CREATE PROPOSAL
     response, data, payload = _create_proposal()
@@ -495,6 +567,9 @@ def test_revote_without_vote_made():
     # CLEAR DB
     _clear_db()
 
+    #SEED USERS
+    _seed_users()
+
     # CREATE PROPOSAL
     response, data, payload = _create_proposal()
 
@@ -521,6 +596,9 @@ def test_revote_after_finish():
 
     #CLEAR DB
     _clear_db()
+
+    #SEED USERS
+    _seed_users()
 
     #CREATE PROPOSAL
     response, data, payload = _create_proposal()
@@ -573,6 +651,9 @@ def test_vote_after_deadline():
     #CLEAR DB
     _clear_db()
 
+    #SEED USERS
+    _seed_users()
+
     # === SETUP PROPOSAL (PAYLOAD) ===
     payload = {
         "title": "Test proposal",
@@ -621,6 +702,9 @@ def test_manual_finish():
     #CLEAR DB
     _clear_db()
 
+    #SEED USERS
+    _seed_users()
+
     #CREATE PROPOSAL
     response, data, payload = _create_proposal()
 
@@ -647,6 +731,9 @@ def test_finish_by_non_author():
     #CLEAR DB
     _clear_db()
 
+    #SEED USERS
+    _seed_users()
+
     #CREATE PROPOSAL
     response, data, payload = _create_proposal()
 
@@ -672,6 +759,9 @@ def test_finish_already_finished():
 
     #CLEAR DB
     _clear_db()
+
+    #SEED USERS
+    _seed_users()
 
     #CREATE PROPOSAL
     response, data, payload = _create_proposal()
@@ -710,6 +800,9 @@ def test_get_proposal_result():
 
     #CLEAR DB
     _clear_db()
+
+    #SEED USERS
+    _seed_users()
 
     #CREATE PROPOSAL
     response, data, payload = _create_proposal()
@@ -754,6 +847,9 @@ def test_get_proposal_votes():
     #CLEAR DB
     _clear_db()
 
+    #SEED USERS
+    _seed_users()
+
     #CREATE PROPOSAL
     response, data, payload = _create_proposal()
 
@@ -796,6 +892,9 @@ def test_audit_log():
 
     #CLEAR DB
     _clear_db()
+
+    #SEED USERS
+    _seed_users()
 
     #CREATE PROPOSAL
     response, data, payload = _create_proposal()
