@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 
 from app.repositories.user_repository import UserRepo
 from app.repositories.vote_repository import VoteRepo
@@ -121,7 +121,8 @@ class ProposalService:
 # ======= PROPOSAL LIFECYCLE ========
 # ===================================
 
-    def create_proposal(self, title, description, author_id, participant_ids, deadline = None):
+    def create_proposal(self, title, description, author_id, participant_ids,
+                        deadline = None):
 
         #AUTHOR CHECK
         author = self.user_repo.get_by_id(author_id)

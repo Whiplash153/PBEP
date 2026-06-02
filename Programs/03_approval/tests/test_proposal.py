@@ -1,6 +1,6 @@
 import pytest
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 from app.services.proposal_service import ProposalService
 from app.models.user import User

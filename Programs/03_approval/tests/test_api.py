@@ -2,7 +2,7 @@ from app.main import app
 from app.db.session import get_db
 from app.models import Vote, Proposal, Participant, AuditLog, User
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 from tests.reserve_db_session import SessionLocal as TestSessionLocal
 
