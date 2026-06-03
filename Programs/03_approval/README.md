@@ -1,24 +1,29 @@
-# Approval System (L2)
+# Approval System (L3)
 
 ## Goal
 
-This project implements a basic approval system where users can create proposals, assign participants, and collect votes to reach a final decision.
+This project implements an approval system where users can create proposals, assign participants, collect votes, and reach a final decision.
 
-The system models a controlled decision-making process with clear states, transitions, and constraints.
+The system models a controlled decision-making workflow with proposal lifecycle management, voting deadlines, audit logging, and transactional consistency.
 
 ---
 
 ## What was done
 
 - Implemented proposal creation with participants validation
-- Implemented voting system with domain constraints
-- Added proposal lifecycle: draft → voting → approved / rejected
-- Implemented both automatic and manual proposal finishing
-- Added domain-level validations and custom exceptions
-- Implemented layered architecture (router / service / repository)
-- Added database layer using SQLAlchemy ORM
+- Added participant entity with proposal membership tracking
+- Implemented proposal lifecycle with controlled status transitions
+- Added proposal editing in draft status
+- Added soft deletion of proposals
+- Implemented voting and revoting functionality
+- Added manual and automatic proposal finishing
+- Implemented voting deadlines
+- Added audit log for important business actions
+- Implemented transactional protection for concurrent voting scenarios
+- Added Alembic migrations support
 - Implemented API using FastAPI
-- Covered core logic and API with pytest tests
+- Added database layer using SQLAlchemy ORM
+- Covered business logic, API, and transaction scenarios with pytest tests
 
 ---
 
@@ -27,12 +32,22 @@ The system models a controlled decision-making process with clear states, transi
 The project follows a layered architecture:
 
 - **Router (FastAPI)** — handles HTTP requests and responses
-- **Service layer** — contains business logic and enforces rules
+- **Service layer** — contains business logic and lifecycle rules
 - **Repository layer** — handles database interactions
-- **Models (ORM)** — define database structure and relationships
-- **Schemas (Pydantic)** — define request/response formats
+- **Models (SQLAlchemy ORM)** — define database structure and relationships
+- **Schemas (Pydantic)** — define request and response validation
+- **Alembic** — manages database schema migrations
 
-This separation ensures that business logic is isolated from HTTP and database layers.
+Main domain entities:
+
+- User
+- Proposal
+- Vote
+- Participant
+- AuditLog
+
+Business rules are centralized inside the service layer.
+Status transitions are controlled through a dedicated transition map.
 
 ---
 
@@ -40,15 +55,39 @@ This separation ensures that business logic is isolated from HTTP and database l
 
 The system enforces the following rules:
 
-- Only the proposal author can start or finish voting
+- Proposal lifecycle is controlled by status transitions:
+  - draft → voting
+  - voting → approved
+  - voting → rejected
+  - draft/voting/approved/rejected → deleted
+
+- Only the proposal author can:
+  - start voting
+  - finish voting manually
+  - edit a proposal
+  - delete a proposal
+
+- Proposal editing is allowed only in draft status
+
 - Only assigned participants can vote
-- Each participant can vote only once
-- Voting is allowed only in "voting" status
-- Proposal automatically finishes when all participants have voted
+
+- Participants can change their vote while voting is active
+
+- Voting is allowed only in voting status
+
+- Proposal can finish automatically when:
+  - all participants have voted
+  - deadline is reached
+
 - Proposal can also be finished manually by the author
-- Final status is determined by majority of votes:
+
+- Final result is determined by majority of votes:
   - approve > reject → approved
   - otherwise → rejected
+
+- Deleted proposals are hidden from regular read operations
+
+- Important actions are recorded in audit log
 
 ---
 
@@ -58,43 +97,70 @@ Main endpoints:
 
 - `POST /proposals` — create proposal
 - `GET /proposals/{id}` — get proposal
-- `POST /proposals/{id}/start` — start voting
-- `POST /votes` — submit vote
-- `POST /proposals/{id}/finish` — finish proposal manually
-- `GET /proposals/{id}/result` — get result
+- `GET /proposals/{id}/result` — get proposal result
+- `GET /proposals/{id}/votes` — get proposal with votes
+- `PATCH /proposals/{id}` — update proposal in draft status
+- `DELETE /proposals/{id}` — soft delete proposal
+- `POST /proposals/{id}/start` — start proposal voting
+- `POST /proposals/{id}/finish` — manually finish proposal
+- `POST /votes` — create vote
+- `PATCH /votes` — change existing vote
 
 ---
 
 ## Error Handling
 
-Custom domain errors are used and mapped to HTTP responses:
+The application uses custom domain exceptions to represent business rule violations.
 
-- 400 — validation errors (invalid input)
-- 403 — forbidden actions (not participant / not author)
-- 404 — entity not found
-- 409 — invalid state or conflicting action
+Exceptions are mapped to HTTP responses globally through FastAPI exception handlers.
+
+Response codes:
+
+- `400 Bad Request`
+  - InvalidVoteValueError
+  - EmptyParticipantsError
+  - DuplicateParticipantsError
+
+- `403 Forbidden`
+  - NotParticipantError
+  - NotAuthorError
+
+- `404 Not Found`
+  - ProposalNotFoundError
+  - UserNotFoundError
+  - VoteNotFoundError
+
+- `409 Conflict`
+  - AlreadyVotedError
+  - InvalidProposalStatusError
+
+Business logic raises domain-specific exceptions inside the service layer, while HTTP response mapping is handled in the application entry point.
 
 ---
 
-## Limitations (L2)
+## Limitations
 
 The system intentionally does NOT include:
 
 - Authentication and authorization system
-- No user interface (UI), backend API only
-- User roles
-- Voting deadlines
+- User interface (UI)
+- Role-based permissions beyond proposal author and participants
+- Weighted voting
+- Veto rights
+- Quorum rules
 - Multi-stage approval workflows
-- Advanced voting strategies (weight, veto, quorum)
+- Background jobs and schedulers
+- Notifications
 
-This version represents a simplified L2 baseline for further extension.
+This project focuses on approval workflow lifecycle, voting mechanics, transactional consistency, and clean service-layer architecture.
 
 ---
 
 ## Run
 
 1. Update DATABASE_URL in app/db/session.py
-2. Create database (e.g. `approve_db`)
-3. Manually run database initialization script (app/db/db_init.py)
-4. Run: uvicorn app.main:app --reload 
-5. Open Swagger UI: http://127.0.0.1:8000/docs
+2. Create PostgreSQL database (approve_db)
+3. Run python -m app.db.db_init
+4. Run alembic upgrade head
+5. Run uvicorn app.main:app --reload
+6. Open Swagger UI at http://127.0.0.1:8000/docs
