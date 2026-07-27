@@ -19,7 +19,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install -r Stage_8_dev_ops/04_CI_CD/demo_ci_cd/requirements.txt
+        run: pip install -r demo_ci_cd/requirements.txt
 
       - name: Run tests
-        run: PYTHONPATH=Stage_8_dev_ops/04_CI_CD/demo_ci_cd pytest Stage_8_dev_ops/04_CI_CD/demo_ci_cd/tests
+        run: PYTHONPATH=demo_ci_cd pytest demo_ci_cd/tests
